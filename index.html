@@ -546,6 +546,40 @@
     .rc-grid { grid-template-columns: 1fr 1fr; }
     .stats-row { grid-template-columns: 1fr 1fr; }
   }
+
+  /* ── API KEY BANNER ── */
+  .apikey-banner {
+    background: #12122a;
+    border-bottom: 1px solid #2a2a4a;
+    padding: 10px 48px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .apikey-banner label {
+    font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; color: #e8c4b8; white-space: nowrap; flex-shrink: 0;
+  }
+  .apikey-input-wrap { display: flex; align-items: center; gap: 8px; flex: 1; max-width: 460px; }
+  .apikey-input-wrap input {
+    flex: 1; padding: 7px 12px; border-radius: 8px; border: 1.5px solid #3a3a5e;
+    background: #0d0d1f; color: #faf8f4; font-family: monospace; font-size: 0.78rem;
+    outline: none; transition: border-color 0.2s;
+  }
+  .apikey-input-wrap input:focus { border-color: #b5614a; }
+  .apikey-input-wrap input::placeholder { color: #444; }
+  .btn-save-key {
+    padding: 7px 16px; background: #b5614a; color: white; border: none; border-radius: 8px;
+    font-family: 'Outfit', sans-serif; font-size: 0.76rem; font-weight: 600;
+    cursor: pointer; transition: background 0.2s; white-space: nowrap;
+  }
+  .btn-save-key:hover { background: #c97a64; }
+  .key-status { font-size: 0.74rem; color: #555; }
+  .key-status.ok { color: #a8c5ab; }
+  .key-help { font-size: 0.7rem; color: #444; margin-left: auto; }
+  .key-help a { color: #6a9ec8; text-decoration: none; }
+  .key-help a:hover { text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -559,6 +593,16 @@
     <div class="event-count">Historial: <strong id="hdr-count">0</strong> eventos</div>
   </div>
 </header>
+
+<div class="apikey-banner" id="apikey-banner">
+  <label>API Key</label>
+  <div class="apikey-input-wrap">
+    <input type="password" id="apikey-input" placeholder="sk-ant-api03-..." autocomplete="off">
+    <button class="btn-save-key" onclick="saveApiKey()">Guardar</button>
+  </div>
+  <span class="key-status" id="key-status">Sin key — la IA no va a funcionar</span>
+  <span class="key-help">Obtené tu key gratis en <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></span>
+</div>
 
 <nav>
   <div class="tab active" onclick="switchTab('cargar')">
@@ -699,6 +743,8 @@ let pendingReviews = [];
 function saveHistory() {
   localStorage.setItem('cocos_bitacora', JSON.stringify(history));
   document.getElementById('hdr-count').textContent = history.length;
+const _savedKey = getApiKey();
+if (_savedKey) updateKeyStatus(_savedKey);
 }
 
 function showToast(msg, type = 'ok') {
@@ -861,6 +907,7 @@ El JSON debe tener exactamente esta estructura:
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
+      'x-api-key': getApiKey(),
       'anthropic-dangerous-direct-browser-iab': 'true'
     },
     body: JSON.stringify({
@@ -1127,10 +1174,44 @@ function exportCSV() {
   showToast('CSV exportado');
 }
 
+
+// ════════════════════════════════
+//  API KEY
+// ════════════════════════════════
+function getApiKey() {
+  return localStorage.getItem('cocos_apikey') || '';
+}
+
+function saveApiKey() {
+  const key = document.getElementById('apikey-input').value.trim();
+  if (!key.startsWith('sk-ant-')) {
+    showToast('La key debe empezar con sk-ant-', 'err');
+    return;
+  }
+  localStorage.setItem('cocos_apikey', key);
+  updateKeyStatus(key);
+  showToast('✓ API key guardada');
+}
+
+function updateKeyStatus(key) {
+  const status = document.getElementById('key-status');
+  const input = document.getElementById('apikey-input');
+  if (key) {
+    status.textContent = '✓ Key configurada';
+    status.className = 'key-status ok';
+    input.value = key.substring(0, 12) + '••••••••••••';
+  } else {
+    status.textContent = 'Sin key — la IA no va a funcionar';
+    status.className = 'key-status';
+  }
+}
+
 // ════════════════════════════════
 //  INIT
 // ════════════════════════════════
 document.getElementById('hdr-count').textContent = history.length;
+const _savedKey = getApiKey();
+if (_savedKey) updateKeyStatus(_savedKey);
 </script>
 </body>
 </html>
