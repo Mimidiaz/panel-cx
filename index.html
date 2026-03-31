@@ -2639,398 +2639,6 @@ const _origAddReviewCard = addReviewCard;
 
 
 // ════════════════════════════════
-//  DRAGGABLE TABS
-// ════════════════════════════════
-const TAB_DEFS = [
-  { id: 'historial', label: '📋 Bitácora', extra: '' },
-  { id: 'calendario', label: '📅 Calendario', extra: '' },
-  { id: 'resumen', label: '📰 Resumen', extra: '' },
-  { id: 'vencimientos', label: '⏰ Vencimientos', extra: '' },
-  { id: 'timeline', label: '📈 Por activo', extra: '' },
-  { id: 'pendientes', label: '⚠️ Pendientes', extra: '<span class="tab-badge" id="badge-pendientes-tab" style="display:none">0</span>' },
-  { id: 'cargar', label: '📄 Cargar', extra: '<span class="tab-badge" id="badge-pendientes" style="display:none">0</span>' },
-  { id: 'instrumentos', label: '🏷️ Instrumentos', extra: '' },
-  { id: 'monitor', label: '📡 Monitor', extra: '' },
-  { id: 'tipos', label: '⚙️ Tipos', extra: '' },
-];
-
-let tabOrder = JSON.parse(localStorage.getItem('cocos_tab_order') || 'null') || TAB_DEFS.map(t => t.id);
-let activeTab = 'historial';
-let dragSrcId = null;
-
-function renderTabs() {
-  const nav = document.getElementById('tabs-nav');
-  nav.innerHTML = tabOrder.map(id => {
-    const def = TAB_DEFS.find(t => t.id === id);
-    if (!def) return '';
-    return `<div class="tab${activeTab===id?' active':''}" 
-      draggable="true"
-      onclick="switchTab('${id}')"
-      ondragstart="tabDragStart('${id}')"
-      ondragover="tabDragOver(event,'${id}')"
-      ondrop="tabDrop(event,'${id}')"
-      ondragleave="tabDragLeave(event)"
-      ondragend="tabDragEnd()"
-      id="tab-btn-${id}">
-      ${def.label}${def.extra}
-    </div>`;
-  }).join('');
-}
-
-function tabDragStart(id) { dragSrcId = id; }
-function tabDragOver(e, id) { e.preventDefault(); if (id !== dragSrcId) document.getElementById(`tab-btn-${id}`)?.classList.add('drag-over'); }
-function tabDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-function tabDragEnd() { document.querySelectorAll('.tab').forEach(t => t.classList.remove('drag-over')); }
-function tabDrop(e, targetId) {
-  e.preventDefault();
-  if (!dragSrcId || dragSrcId === targetId) return;
-  const from = tabOrder.indexOf(dragSrcId);
-  const to = tabOrder.indexOf(targetId);
-  tabOrder.splice(from, 1);
-  tabOrder.splice(to, 0, dragSrcId);
-  localStorage.setItem('cocos_tab_order', JSON.stringify(tabOrder));
-  renderTabs();
-}
-
-// ════════════════════════════════
-//  EDITAR EVENTO
-// ════════════════════════════════
-let _editEventId = null;
-
-function openEdit(id) {
-  const event = history.find(e => e.id === id);
-  if (!event) return;
-  _editEventId = id;
-  document.getElementById('edit-nombre').value = event.nombre || '';
-  document.getElementById('edit-tipo').innerHTML = '<option value="">—</option>' + getTipoOptions(event.tipo);
-  document.getElementById('edit-empresa').value = event.empresa || '';
-  document.getElementById('edit-fecha').value = event.fecha || '';
-  document.getElementById('edit-monto').value = event.monto || '';
-  document.getElementById('edit-moneda').value = event.moneda || '';
-  document.getElementById('edit-rolCocos').value = event.rolCocos || '';
-  document.getElementById('edit-notas').value = event.notas || '';
-  const modal = document.getElementById('edit-modal');
-  modal.style.display = 'flex';
-}
-
-function closeEdit() {
-  document.getElementById('edit-modal').style.display = 'none';
-  _editEventId = null;
-}
-
-function saveEdit() {
-  if (!_editEventId) return;
-  const idx = history.findIndex(e => e.id === _editEventId);
-  if (idx === -1) return;
-  history[idx] = {
-    ...history[idx],
-    nombre: document.getElementById('edit-nombre').value.trim(),
-    tipo: document.getElementById('edit-tipo').value,
-    empresa: document.getElementById('edit-empresa').value.trim(),
-    fecha: document.getElementById('edit-fecha').value,
-    monto: document.getElementById('edit-monto').value,
-    moneda: document.getElementById('edit-moneda').value,
-    rolCocos: document.getElementById('edit-rolCocos').value,
-    notas: document.getElementById('edit-notas').value.trim(),
-  };
-  saveHistory();
-  updateStats();
-  renderTable();
-  closeEdit();
-  showToast('✓ Evento actualizado');
-}
-
-document.getElementById('edit-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeEdit();
-});
-
-// ════════════════════════════════
-//  NOTAS
-// ════════════════════════════════
-let _notaEventId = null;
-
-function openNota(id) {
-  const event = history.find(e => e.id === id);
-  if (!event) return;
-  _notaEventId = id;
-  document.getElementById('nota-modal-title').textContent = event.nombre || 'Nota del evento';
-  document.getElementById('nota-modal-sub').textContent = event.empresa ? `${event.empresa} · ${formatDate(event.fecha)||''}` : formatDate(event.fecha)||'';
-  document.getElementById('nota-textarea').value = event.notas || '';
-  const modal = document.getElementById('nota-modal');
-  modal.style.display = 'flex';
-  setTimeout(() => document.getElementById('nota-textarea').focus(), 50);
-}
-
-function closeNota() {
-  document.getElementById('nota-modal').style.display = 'none';
-  _notaEventId = null;
-}
-
-function saveNota() {
-  if (!_notaEventId) return;
-  const nota = document.getElementById('nota-textarea').value.trim();
-  const idx = history.findIndex(e => e.id === _notaEventId);
-  if (idx > -1) {
-    history[idx].notas = nota;
-    saveHistory();
-    renderTable();
-    showToast('✓ Nota guardada');
-  }
-  closeNota();
-}
-
-// Close modal on backdrop click
-document.getElementById('nota-modal').addEventListener('click', function(e) {
-  if (e.target === this) closeNota();
-});
-
-// ════════════════════════════════
-//  PASTE PARSER
-// ════════════════════════════════
-function openPasteForm() {
-  document.getElementById('paste-form-wrap').style.display = 'block';
-  document.getElementById('paste-input').focus();
-}
-
-function closePasteForm() {
-  document.getElementById('paste-form-wrap').style.display = 'none';
-  document.getElementById('paste-input').value = '';
-}
-
-function parsePaste() {
-  const raw = document.getElementById('paste-input').value.trim();
-  if (!raw) { showToast('Pegá algún contenido primero', 'err'); return; }
-
-  const TIPOS_KNOWN = getTipos();
-  const TIPOS_MAP = {};
-  TIPOS_KNOWN.forEach(t => TIPOS_MAP[t.toLowerCase()] = t);
-
-  // Also handle common abbreviations
-  const ALIAS = {
-    'renta': 'Renta',
-    'rent': 'Renta',
-    'amortizacion': 'Amortización',
-    'amortización': 'Amortización',
-    'amort': 'Amortización',
-    'dividendo': 'Dividendos',
-    'dividendos': 'Dividendos',
-    'div': 'Dividendos',
-    'licitacion tesoro': 'Licitación Tesoro',
-    'licitación tesoro': 'Licitación Tesoro',
-    'licitacion on': 'Licitación ON',
-    'licitación on': 'Licitación ON',
-    'colocacion primaria': 'Colocación Primaria',
-    'colocación primaria': 'Colocación Primaria',
-    'evento corporativo': 'Evento Corporativo',
-  };
-
-  function detectTipo(s) {
-    const sl = s.toLowerCase().trim();
-    if (ALIAS[sl]) return ALIAS[sl];
-    if (TIPOS_MAP[sl]) return TIPOS_MAP[sl];
-    return null;
-  }
-
-  // Date patterns: DD/MM/YYYY, D/M/YYYY, YYYY-MM-DD
-  function detectDate(s) {
-    let m;
-    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
-    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    if (m) return m[0];
-    return null;
-  }
-
-  // Split rows: try tab-separated first (Google Sheets), then detect dates as row separators
-  let rows = [];
-
-  // Try splitting by newline first
-  const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
-
-  for (const line of lines) {
-    // Each line: try tab-separated (col1=fecha, col2=tipo, col3=tickers)
-    const parts = line.split(/\t/);
-    if (parts.length >= 3) {
-      rows.push({ date: parts[0].trim(), tipo: parts[1].trim(), tickers: parts[2].trim() });
-      continue;
-    }
-
-    // No tabs: try to parse free text
-    // Pattern: find a date, then tipo, then rest are tickers
-    let remaining = line;
-    let fecha = null;
-    let tipo = null;
-
-    // Find date at start
-    const dateMatch = remaining.match(/^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/);
-    if (dateMatch) {
-      fecha = detectDate(dateMatch[0]);
-      remaining = remaining.slice(dateMatch[0].length).trim();
-    }
-
-    // Find tipo: check each known tipo against remaining
-    for (const t of Object.keys(ALIAS)) {
-      if (remaining.toLowerCase().startsWith(t)) {
-        tipo = ALIAS[t];
-        remaining = remaining.slice(t.length).trim();
-        break;
-      }
-    }
-    if (!tipo) {
-      // Try matching any known tipo
-      for (const t of TIPOS_KNOWN) {
-        if (remaining.toLowerCase().startsWith(t.toLowerCase())) {
-          tipo = t;
-          remaining = remaining.slice(t.length).trim();
-          break;
-        }
-      }
-    }
-
-    if (fecha || tipo) {
-      rows.push({ date: fecha ? `${parseInt(fecha.split('-')[2])}/${parseInt(fecha.split('-')[1])}/${fecha.split('-')[0]}` : '', tipo: tipo || '', tickers: remaining });
-    }
-  }
-
-  // If no rows parsed via newlines, try splitting on date pattern (all in one line)
-  if (!rows.length) {
-    const datePattern = /(\d{1,2}\/\d{1,2}\/\d{4})/g;
-    const segments = raw.split(datePattern).filter(Boolean);
-    let i = 0;
-    while (i < segments.length) {
-      const maybeDate = detectDate(segments[i]);
-      if (maybeDate && i + 1 < segments.length) {
-        const rest = segments[i+1].trim();
-        // rest = tipo + tickers
-        let tipo = null, tickers = rest;
-        for (const t of Object.keys(ALIAS)) {
-          if (rest.toLowerCase().startsWith(t)) {
-            tipo = ALIAS[t];
-            tickers = rest.slice(t.length).trim();
-            break;
-          }
-        }
-        rows.push({ date: `${parseInt(maybeDate.split('-')[2])}/${parseInt(maybeDate.split('-')[1])}/${maybeDate.split('-')[0]}`, tipo: tipo||'', tickers });
-        i += 2;
-      } else { i++; }
-    }
-  }
-
-  if (!rows.length) {
-    showToast('No se detectaron eventos. Revisá el formato.', 'err');
-    return;
-  }
-
-  // For each row, if multiple tickers → one card per ticker OR one card with all tickers as nombre
-  let generated = 0;
-  for (const row of rows) {
-    const fecha = detectDate(row.date.includes('/') ? row.date : row.date) || isoDate(row.date);
-    const tipo = detectTipo(row.tipo) || row.tipo || 'Otro';
-
-    // Split tickers by ; or ,
-    const tickers = row.tickers
-      .split(/[;,]/)
-      .map(t => t.trim())
-      .filter(Boolean);
-
-    const tickerList = tickers.length ? tickers : [''];
-    for (const ticker of tickerList) {
-      const info = ticker ? lookupInstrumento(ticker) : null;
-      addReviewCard({
-        nombre: info?.nombre || ticker,
-        tipo,
-        empresa: info?.emisor || '',
-        fecha,
-        monto: '',
-        moneda: '',
-        notas: '',
-        confianza: 'alta'
-      }, 'Planilla');
-      generated++;
-    }
-  }
-
-  closePasteForm();
-  document.getElementById('review-section').style.display = 'block';
-  showToast(`⚡ ${generated} evento${generated!==1?'s':''} generado${generated!==1?'s':''} — revisá y confirmá`);
-}
-
-// ════════════════════════════════
-//  MANUAL FORM
-// ════════════════════════════════
-function openManualForm() {
-  document.getElementById('manual-form-wrap').style.display = 'block';
-  // Populate tipo select
-  const sel = document.getElementById('m-tipo');
-  sel.innerHTML = getTipoOptions('');
-}
-
-function closeManualForm() {
-  document.getElementById('manual-form-wrap').style.display = 'none';
-  ['m-nombre','m-empresa','m-monto','m-notas'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('m-rolCocos').value = '';
-  document.getElementById('m-fecha').value = '';
-  document.getElementById('m-pdf').value = '';
-}
-
-async function saveManual() {
-  const nombre = document.getElementById('m-nombre').value.trim();
-  if (!nombre) { showToast('El nombre es obligatorio', 'err'); return; }
-
-  const pdfFile = document.getElementById('m-pdf').files[0];
-  let pdfData = null, pdfName = null;
-
-  if (pdfFile) {
-    pdfData = await new Promise((res, rej) => {
-      const r = new FileReader();
-      r.onload = e => res(e.target.result.split(',')[1]);
-      r.onerror = rej;
-      r.readAsDataURL(pdfFile);
-    });
-    pdfName = pdfFile.name;
-  }
-
-  const event = {
-    id: Date.now(),
-    nombre,
-    tipo: document.getElementById('m-tipo').value,
-    empresa: document.getElementById('m-empresa').value.trim(),
-    fecha: document.getElementById('m-fecha').value,
-    monto: document.getElementById('m-monto').value,
-    moneda: document.getElementById('m-moneda').value,
-    notas: document.getElementById('m-notas').value.trim(),
-    rolCocos: document.getElementById('m-rolCocos').value,
-    fuente: pdfName || 'Carga manual',
-    fechaCarga: new Date().toISOString().split('T')[0],
-    pdfData,
-    pdfName
-  };
-
-  const dupWarnM = checkDuplicateBeforeSave(event);
-  if (dupWarnM && !confirm(dupWarnM + '\n\n¿Guardás igual?')) return;
-  history.unshift(event);
-  saveHistory();
-  closeManualForm();
-  showToast('✓ Evento guardado en la bitácora');
-}
-
-function downloadPDF(id) {
-  const event = history.find(e => e.id === id);
-  if (!event?.pdfData) return;
-  const byteChars = atob(event.pdfData);
-  const byteArr = new Uint8Array(byteChars.length);
-  for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
-  const blob = new Blob([byteArr], { type: 'application/pdf' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = event.pdfName || `${event.nombre}.pdf`;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-
-// ════════════════════════════════
 //  MONITOR DE AVISOS
 // ════════════════════════════════
 
@@ -3760,25 +3368,8 @@ function handleDatePreset() {
 /* ============================================================
    ESTADÍSTICAS
    ============================================================ */
-function updateStats() {
-  const all = monState.avisos;
-  const filtered = monState.filteredAvisos;
-  const cocosCount = all.filter(a => a.cocos).length;
-  const licitCount = all.filter(a => a.tipo?.code === 'licit').length;
-  const resCount = all.filter(a => a.tipo?.code === 'res').length;
 
-  document.getElementById('statTotal').textContent = all.length;
-  document.getElementById('statLicit').textContent = licitCount;
-  document.getElementById('statRes').textContent = resCount;
-  document.getElementById('statCocos').textContent = cocosCount;
-  document.getElementById('badgeTotal').textContent = all.length;
-  document.getElementById('badgeCocos').textContent = cocosCount;
-}
 
-/* ============================================================
-   RENDER DE TABLA
-
-// Monitor render (integrated version)
 function monitorRender() {
   const list = document.getElementById('mon-list');
   const statsEl = document.getElementById('mon-stats');
@@ -3898,6 +3489,399 @@ function monitorRenderSourceFilter() {
   if (!sel) return;
   sel.innerHTML = '<option value="">Todas las fuentes</option>' +
     monState.sources.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`).join('');
+}
+
+
+
+// ════════════════════════════════
+//  DRAGGABLE TABS
+// ════════════════════════════════
+const TAB_DEFS = [
+  { id: 'historial', label: '📋 Bitácora', extra: '' },
+  { id: 'calendario', label: '📅 Calendario', extra: '' },
+  { id: 'resumen', label: '📰 Resumen', extra: '' },
+  { id: 'vencimientos', label: '⏰ Vencimientos', extra: '' },
+  { id: 'timeline', label: '📈 Por activo', extra: '' },
+  { id: 'pendientes', label: '⚠️ Pendientes', extra: '<span class="tab-badge" id="badge-pendientes-tab" style="display:none">0</span>' },
+  { id: 'cargar', label: '📄 Cargar', extra: '<span class="tab-badge" id="badge-pendientes" style="display:none">0</span>' },
+  { id: 'instrumentos', label: '🏷️ Instrumentos', extra: '' },
+  { id: 'monitor', label: '📡 Monitor', extra: '' },
+  { id: 'tipos', label: '⚙️ Tipos', extra: '' },
+];
+
+let tabOrder = JSON.parse(localStorage.getItem('cocos_tab_order') || 'null') || TAB_DEFS.map(t => t.id);
+let activeTab = 'historial';
+let dragSrcId = null;
+
+function renderTabs() {
+  const nav = document.getElementById('tabs-nav');
+  nav.innerHTML = tabOrder.map(id => {
+    const def = TAB_DEFS.find(t => t.id === id);
+    if (!def) return '';
+    return `<div class="tab${activeTab===id?' active':''}" 
+      draggable="true"
+      onclick="switchTab('${id}')"
+      ondragstart="tabDragStart('${id}')"
+      ondragover="tabDragOver(event,'${id}')"
+      ondrop="tabDrop(event,'${id}')"
+      ondragleave="tabDragLeave(event)"
+      ondragend="tabDragEnd()"
+      id="tab-btn-${id}">
+      ${def.label}${def.extra}
+    </div>`;
+  }).join('');
+}
+
+function tabDragStart(id) { dragSrcId = id; }
+function tabDragOver(e, id) { e.preventDefault(); if (id !== dragSrcId) document.getElementById(`tab-btn-${id}`)?.classList.add('drag-over'); }
+function tabDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
+function tabDragEnd() { document.querySelectorAll('.tab').forEach(t => t.classList.remove('drag-over')); }
+function tabDrop(e, targetId) {
+  e.preventDefault();
+  if (!dragSrcId || dragSrcId === targetId) return;
+  const from = tabOrder.indexOf(dragSrcId);
+  const to = tabOrder.indexOf(targetId);
+  tabOrder.splice(from, 1);
+  tabOrder.splice(to, 0, dragSrcId);
+  localStorage.setItem('cocos_tab_order', JSON.stringify(tabOrder));
+  renderTabs();
+}
+
+// ════════════════════════════════
+//  EDITAR EVENTO
+// ════════════════════════════════
+let _editEventId = null;
+
+function openEdit(id) {
+  const event = history.find(e => e.id === id);
+  if (!event) return;
+  _editEventId = id;
+  document.getElementById('edit-nombre').value = event.nombre || '';
+  document.getElementById('edit-tipo').innerHTML = '<option value="">—</option>' + getTipoOptions(event.tipo);
+  document.getElementById('edit-empresa').value = event.empresa || '';
+  document.getElementById('edit-fecha').value = event.fecha || '';
+  document.getElementById('edit-monto').value = event.monto || '';
+  document.getElementById('edit-moneda').value = event.moneda || '';
+  document.getElementById('edit-rolCocos').value = event.rolCocos || '';
+  document.getElementById('edit-notas').value = event.notas || '';
+  const modal = document.getElementById('edit-modal');
+  modal.style.display = 'flex';
+}
+
+function closeEdit() {
+  document.getElementById('edit-modal').style.display = 'none';
+  _editEventId = null;
+}
+
+function saveEdit() {
+  if (!_editEventId) return;
+  const idx = history.findIndex(e => e.id === _editEventId);
+  if (idx === -1) return;
+  history[idx] = {
+    ...history[idx],
+    nombre: document.getElementById('edit-nombre').value.trim(),
+    tipo: document.getElementById('edit-tipo').value,
+    empresa: document.getElementById('edit-empresa').value.trim(),
+    fecha: document.getElementById('edit-fecha').value,
+    monto: document.getElementById('edit-monto').value,
+    moneda: document.getElementById('edit-moneda').value,
+    rolCocos: document.getElementById('edit-rolCocos').value,
+    notas: document.getElementById('edit-notas').value.trim(),
+  };
+  saveHistory();
+  updateStats();
+  renderTable();
+  closeEdit();
+  showToast('✓ Evento actualizado');
+}
+
+document.getElementById('edit-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeEdit();
+});
+
+// ════════════════════════════════
+//  NOTAS
+// ════════════════════════════════
+let _notaEventId = null;
+
+function openNota(id) {
+  const event = history.find(e => e.id === id);
+  if (!event) return;
+  _notaEventId = id;
+  document.getElementById('nota-modal-title').textContent = event.nombre || 'Nota del evento';
+  document.getElementById('nota-modal-sub').textContent = event.empresa ? `${event.empresa} · ${formatDate(event.fecha)||''}` : formatDate(event.fecha)||'';
+  document.getElementById('nota-textarea').value = event.notas || '';
+  const modal = document.getElementById('nota-modal');
+  modal.style.display = 'flex';
+  setTimeout(() => document.getElementById('nota-textarea').focus(), 50);
+}
+
+function closeNota() {
+  document.getElementById('nota-modal').style.display = 'none';
+  _notaEventId = null;
+}
+
+function saveNota() {
+  if (!_notaEventId) return;
+  const nota = document.getElementById('nota-textarea').value.trim();
+  const idx = history.findIndex(e => e.id === _notaEventId);
+  if (idx > -1) {
+    history[idx].notas = nota;
+    saveHistory();
+    renderTable();
+    showToast('✓ Nota guardada');
+  }
+  closeNota();
+}
+
+// Close modal on backdrop click
+document.getElementById('nota-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeNota();
+});
+
+// ════════════════════════════════
+//  PASTE PARSER
+// ════════════════════════════════
+function openPasteForm() {
+  document.getElementById('paste-form-wrap').style.display = 'block';
+  document.getElementById('paste-input').focus();
+}
+
+function closePasteForm() {
+  document.getElementById('paste-form-wrap').style.display = 'none';
+  document.getElementById('paste-input').value = '';
+}
+
+function parsePaste() {
+  const raw = document.getElementById('paste-input').value.trim();
+  if (!raw) { showToast('Pegá algún contenido primero', 'err'); return; }
+
+  const TIPOS_KNOWN = getTipos();
+  const TIPOS_MAP = {};
+  TIPOS_KNOWN.forEach(t => TIPOS_MAP[t.toLowerCase()] = t);
+
+  // Also handle common abbreviations
+  const ALIAS = {
+    'renta': 'Renta',
+    'rent': 'Renta',
+    'amortizacion': 'Amortización',
+    'amortización': 'Amortización',
+    'amort': 'Amortización',
+    'dividendo': 'Dividendos',
+    'dividendos': 'Dividendos',
+    'div': 'Dividendos',
+    'licitacion tesoro': 'Licitación Tesoro',
+    'licitación tesoro': 'Licitación Tesoro',
+    'licitacion on': 'Licitación ON',
+    'licitación on': 'Licitación ON',
+    'colocacion primaria': 'Colocación Primaria',
+    'colocación primaria': 'Colocación Primaria',
+    'evento corporativo': 'Evento Corporativo',
+  };
+
+  function detectTipo(s) {
+    const sl = s.toLowerCase().trim();
+    if (ALIAS[sl]) return ALIAS[sl];
+    if (TIPOS_MAP[sl]) return TIPOS_MAP[sl];
+    return null;
+  }
+
+  // Date patterns: DD/MM/YYYY, D/M/YYYY, YYYY-MM-DD
+  function detectDate(s) {
+    let m;
+    m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+    m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return m[0];
+    return null;
+  }
+
+  // Split rows: try tab-separated first (Google Sheets), then detect dates as row separators
+  let rows = [];
+
+  // Try splitting by newline first
+  const lines = raw.split(/\n/).map(l => l.trim()).filter(Boolean);
+
+  for (const line of lines) {
+    // Each line: try tab-separated (col1=fecha, col2=tipo, col3=tickers)
+    const parts = line.split(/\t/);
+    if (parts.length >= 3) {
+      rows.push({ date: parts[0].trim(), tipo: parts[1].trim(), tickers: parts[2].trim() });
+      continue;
+    }
+
+    // No tabs: try to parse free text
+    // Pattern: find a date, then tipo, then rest are tickers
+    let remaining = line;
+    let fecha = null;
+    let tipo = null;
+
+    // Find date at start
+    const dateMatch = remaining.match(/^(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/);
+    if (dateMatch) {
+      fecha = detectDate(dateMatch[0]);
+      remaining = remaining.slice(dateMatch[0].length).trim();
+    }
+
+    // Find tipo: check each known tipo against remaining
+    for (const t of Object.keys(ALIAS)) {
+      if (remaining.toLowerCase().startsWith(t)) {
+        tipo = ALIAS[t];
+        remaining = remaining.slice(t.length).trim();
+        break;
+      }
+    }
+    if (!tipo) {
+      // Try matching any known tipo
+      for (const t of TIPOS_KNOWN) {
+        if (remaining.toLowerCase().startsWith(t.toLowerCase())) {
+          tipo = t;
+          remaining = remaining.slice(t.length).trim();
+          break;
+        }
+      }
+    }
+
+    if (fecha || tipo) {
+      rows.push({ date: fecha ? `${parseInt(fecha.split('-')[2])}/${parseInt(fecha.split('-')[1])}/${fecha.split('-')[0]}` : '', tipo: tipo || '', tickers: remaining });
+    }
+  }
+
+  // If no rows parsed via newlines, try splitting on date pattern (all in one line)
+  if (!rows.length) {
+    const datePattern = /(\d{1,2}\/\d{1,2}\/\d{4})/g;
+    const segments = raw.split(datePattern).filter(Boolean);
+    let i = 0;
+    while (i < segments.length) {
+      const maybeDate = detectDate(segments[i]);
+      if (maybeDate && i + 1 < segments.length) {
+        const rest = segments[i+1].trim();
+        // rest = tipo + tickers
+        let tipo = null, tickers = rest;
+        for (const t of Object.keys(ALIAS)) {
+          if (rest.toLowerCase().startsWith(t)) {
+            tipo = ALIAS[t];
+            tickers = rest.slice(t.length).trim();
+            break;
+          }
+        }
+        rows.push({ date: `${parseInt(maybeDate.split('-')[2])}/${parseInt(maybeDate.split('-')[1])}/${maybeDate.split('-')[0]}`, tipo: tipo||'', tickers });
+        i += 2;
+      } else { i++; }
+    }
+  }
+
+  if (!rows.length) {
+    showToast('No se detectaron eventos. Revisá el formato.', 'err');
+    return;
+  }
+
+  // For each row, if multiple tickers → one card per ticker OR one card with all tickers as nombre
+  let generated = 0;
+  for (const row of rows) {
+    const fecha = detectDate(row.date.includes('/') ? row.date : row.date) || isoDate(row.date);
+    const tipo = detectTipo(row.tipo) || row.tipo || 'Otro';
+
+    // Split tickers by ; or ,
+    const tickers = row.tickers
+      .split(/[;,]/)
+      .map(t => t.trim())
+      .filter(Boolean);
+
+    const tickerList = tickers.length ? tickers : [''];
+    for (const ticker of tickerList) {
+      const info = ticker ? lookupInstrumento(ticker) : null;
+      addReviewCard({
+        nombre: info?.nombre || ticker,
+        tipo,
+        empresa: info?.emisor || '',
+        fecha,
+        monto: '',
+        moneda: '',
+        notas: '',
+        confianza: 'alta'
+      }, 'Planilla');
+      generated++;
+    }
+  }
+
+  closePasteForm();
+  document.getElementById('review-section').style.display = 'block';
+  showToast(`⚡ ${generated} evento${generated!==1?'s':''} generado${generated!==1?'s':''} — revisá y confirmá`);
+}
+
+// ════════════════════════════════
+//  MANUAL FORM
+// ════════════════════════════════
+function openManualForm() {
+  document.getElementById('manual-form-wrap').style.display = 'block';
+  // Populate tipo select
+  const sel = document.getElementById('m-tipo');
+  sel.innerHTML = getTipoOptions('');
+}
+
+function closeManualForm() {
+  document.getElementById('manual-form-wrap').style.display = 'none';
+  ['m-nombre','m-empresa','m-monto','m-notas'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('m-rolCocos').value = '';
+  document.getElementById('m-fecha').value = '';
+  document.getElementById('m-pdf').value = '';
+}
+
+async function saveManual() {
+  const nombre = document.getElementById('m-nombre').value.trim();
+  if (!nombre) { showToast('El nombre es obligatorio', 'err'); return; }
+
+  const pdfFile = document.getElementById('m-pdf').files[0];
+  let pdfData = null, pdfName = null;
+
+  if (pdfFile) {
+    pdfData = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result.split(',')[1]);
+      r.onerror = rej;
+      r.readAsDataURL(pdfFile);
+    });
+    pdfName = pdfFile.name;
+  }
+
+  const event = {
+    id: Date.now(),
+    nombre,
+    tipo: document.getElementById('m-tipo').value,
+    empresa: document.getElementById('m-empresa').value.trim(),
+    fecha: document.getElementById('m-fecha').value,
+    monto: document.getElementById('m-monto').value,
+    moneda: document.getElementById('m-moneda').value,
+    notas: document.getElementById('m-notas').value.trim(),
+    rolCocos: document.getElementById('m-rolCocos').value,
+    fuente: pdfName || 'Carga manual',
+    fechaCarga: new Date().toISOString().split('T')[0],
+    pdfData,
+    pdfName
+  };
+
+  const dupWarnM = checkDuplicateBeforeSave(event);
+  if (dupWarnM && !confirm(dupWarnM + '\n\n¿Guardás igual?')) return;
+  history.unshift(event);
+  saveHistory();
+  closeManualForm();
+  showToast('✓ Evento guardado en la bitácora');
+}
+
+function downloadPDF(id) {
+  const event = history.find(e => e.id === id);
+  if (!event?.pdfData) return;
+  const byteChars = atob(event.pdfData);
+  const byteArr = new Uint8Array(byteChars.length);
+  for (let i = 0; i < byteChars.length; i++) byteArr[i] = byteChars.charCodeAt(i);
+  const blob = new Blob([byteArr], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = event.pdfName || `${event.nombre}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 
