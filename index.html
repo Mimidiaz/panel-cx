@@ -1112,6 +1112,46 @@
   </div>
 
 
+  <!-- ═══ TAB MONITOR ═══ -->
+  <div class="panel" id="panel-monitor">
+    <div class="page-header" style="margin-bottom:16px">
+      <div class="page-title">Monitor de Avisos</div>
+      <div class="page-sub">Avisos de BYMA, CNV, Bolsar, MAE y Comafi. Mandá cualquier aviso directo a la Bitácora.</div>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+      <button class="btn-export" onclick="monitorFetchAll()" id="mon-btn-refresh">🔄 Actualizar</button>
+      <select id="mon-filter-source" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--ink2);background:white;outline:none" onchange="monitorRender()">
+        <option value="">Todas las fuentes</option>
+      </select>
+      <select id="mon-filter-tipo" style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;color:var(--ink2);background:white;outline:none" onchange="monitorRender()">
+        <option value="">Todos los tipos</option>
+        <option value="licitacion">Licitación</option>
+        <option value="colocacion">Colocación</option>
+        <option value="dividendo">Dividendo</option>
+        <option value="amortizacion">Amortización</option>
+        <option value="hecho">Hecho relevante</option>
+        <option value="otro">Otro</option>
+      </select>
+      <input type="text" id="mon-filter-search" placeholder="Buscar en avisos..." 
+        style="padding:8px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.82rem;flex:1;min-width:180px;outline:none"
+        oninput="monitorRender()">
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:#6b84a8;cursor:pointer">
+        <input type="checkbox" id="mon-filter-cocos" onchange="monitorRender()"> Solo Cocos
+      </label>
+      <span id="mon-status" style="font-size:0.75rem;color:#aaa;margin-left:auto"></span>
+    </div>
+
+    <!-- Stats row -->
+    <div style="display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap" id="mon-stats"></div>
+
+    <!-- Avisos list -->
+    <div id="mon-list" style="display:flex;flex-direction:column;gap:10px">
+      <div style="text-align:center;padding:60px;color:#ccc;font-size:0.88rem">Presioná "Actualizar" para cargar los avisos</div>
+    </div>
+  </div>
+
   <!-- ═══ TAB INSTRUMENTOS ═══ -->
   <div class="panel" id="panel-instrumentos">
     <div class="page-header">
@@ -1289,6 +1329,7 @@ function switchTab(tab) {
   if (tab === 'vencimientos') { renderVencimientos(); }
   if (tab === 'timeline') { renderTimeline(); }
   if (tab === 'pendientes') { renderPendientes(); }
+  if (tab === 'monitor') { monLoadFromStorage(); monitorRenderSourceFilter(); monitorRender(); }
 }
 
 function formatDate(d) {
@@ -2609,6 +2650,7 @@ const TAB_DEFS = [
   { id: 'pendientes', label: '⚠️ Pendientes', extra: '<span class="tab-badge" id="badge-pendientes-tab" style="display:none">0</span>' },
   { id: 'cargar', label: '📄 Cargar', extra: '<span class="tab-badge" id="badge-pendientes" style="display:none">0</span>' },
   { id: 'instrumentos', label: '🏷️ Instrumentos', extra: '' },
+  { id: 'monitor', label: '📡 Monitor', extra: '' },
   { id: 'tipos', label: '⚙️ Tipos', extra: '' },
 ];
 
@@ -2987,6 +3029,878 @@ function downloadPDF(id) {
   URL.revokeObjectURL(url);
 }
 
+
+// ════════════════════════════════
+//  MONITOR DE AVISOS
+// ════════════════════════════════
+
+
+/* ============================================================
+   ESTADO GLOBAL DE LA APLICACIÓN
+   ============================================================ */
+
+// Fuentes por defecto
+const DEFAULT_SOURCES = [
+  { id: 'bolsar_emisoras', name: 'Bolsar Emisoras', url: 'https://bolsar.info/relevante_semestral.php', group: 'bolsar', active: true },
+  { id: 'byma_avisos', name: 'Avisos BYMA', url: 'https://bolsar.info/avisos.php', group: 'bolsar', active: true },
+  { id: 'cnv_hechos', name: 'CNV Hechos Relevantes', url: 'https://www.cnv.gov.ar/SitioWeb/HechosRelevantes', group: 'cnv', active: true },
+  { id: 'cnv_noticias', name: 'CNV Noticias', url: 'https://www.cnv.gov.ar/SitioWeb/Empresa/Noticias', group: 'cnv', active: true },
+  { id: 'finanzas', name: 'Sec. de Finanzas', url: 'https://www.economia.gob.ar/finanzas/deuda/licitaciones/', group: 'finanzas', active: true },
+  { id: 'mae', name: 'MAE Licitaciones', url: 'https://www.mae.com.ar/licitaciones', group: 'mae', active: true },
+  { id: 'comafi_dividendos', name: 'Comafi Dividendos', url: 'https://www.comafi.com.ar/custodiaglobal/dividendos.aspx', group: 'comafi', active: true },
+  { id: 'comafi_pagos', name: 'Comafi Pagos', url: 'https://www.comafi.com.ar/custodiaglobal/pagos.aspx', group: 'comafi', active: true },
+  { id: 'comafi_eventos', name: 'Comafi Eventos Corp.', url: 'https://www.comafi.com.ar/custodiaglobal/eventos-corporativos.aspx', group: 'comafi', active: true },
+];
+
+// Proxies CORS en cascada
+const CORS_PROXIES = [
+  { name: 'Directo', fn: url => url },
+  { name: 'AllOrigins', fn: url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}` },
+  { name: 'CORSProxy.io', fn: url => `https://corsproxy.io/?${encodeURIComponent(url)}` },
+  { name: 'CORS-Anywhere', fn: url => `https://cors-anywhere.herokuapp.com/${url}` },
+];
+
+// Estado de la app
+let monState = {
+  sources: [],
+  avisos: [],
+  filteredAvisos: [],
+  cocosKeywords: ['cocos capital', 'cocos', 'ccos'],
+  currentTab: 'todos',
+  currentPage: 1,
+  pageSize: 50,
+  sourceStatus: {},  // id -> { status, lastFetch, count, proxy }
+  autoRefresh: false,
+  autoRefreshMinutes: 10,
+  autoRefreshTimer: null,
+  autoRefreshCountdown: null,
+  lastUpdate: null,
+  revisados: new Set(),
+  editingSourceId: null,
+  notionToken: '',
+  notionDbId: '',
+  notionSendingIndex: null, // índice del aviso que se está enviando
+};
+
+/* ============================================================
+   INICIALIZACIÓN
+   ============================================================ */
+function init() {
+  monLoadFromStorage();
+  monitorRenderSourceFilter();
+  ;
+  monitorRender();
+  // Cargar datos al inicio
+  monitorFetchAll();
+}
+
+/* ============================================================
+   PERSISTENCIA CON localStorage
+   ============================================================ */
+function monLoadFromStorage() {
+  try {
+    const saved = localStorage.getItem('cocos_monitor_state');
+    if (saved) {
+      const data = JSON.parse(saved);
+      if (data.sources && data.sources.length > 0) {
+        monState.sources = data.sources;
+      } else {
+        monState.sources = JSON.parse(JSON.stringify(DEFAULT_SOURCES));
+      }
+      if (data.cocosKeywords) {
+        monState.cocosKeywords = data.cocosKeywords;
+        document.getElementById('cocosKeywords').value = monState.cocosKeywords.join(',');
+      }
+      if (data.autoRefresh !== undefined) {
+        monState.autoRefresh = data.autoRefresh;
+        monState.autoRefreshMinutes = data.autoRefreshMinutes || 10;
+        document.getElementById('autoRefreshEnabled').checked = monState.autoRefresh;
+        document.getElementById('autoRefreshInterval').value = monState.autoRefreshMinutes;
+        if (monState.autoRefresh) startAutoRefresh();
+      }
+      if (data.revisados) {
+        monState.revisados = new Set(data.revisados);
+      }
+      if (data.filters) {
+        if (data.filters.search) document.getElementById('searchInput').value = data.filters.search;
+        if (data.filters.type) document.getElementById('filterType').value = data.filters.type;
+        if (data.filters.source) document.getElementById('filterSource').value = data.filters.source;
+      }
+      // Cargar config de Notion
+      if (data.notionToken) {
+        monState.notionToken = data.notionToken;
+        document.getElementById('notionToken').value = data.notionToken;
+      }
+      if (data.notionDbId) {
+        monState.notionDbId = data.notionDbId;
+        document.getElementById('notionDbId').value = data.notionDbId;
+      }
+    } else {
+      monState.sources = JSON.parse(JSON.stringify(DEFAULT_SOURCES));
+    }
+  } catch (e) {
+    console.warn('Error cargando estado guardado:', e);
+    monState.sources = JSON.parse(JSON.stringify(DEFAULT_SOURCES));
+  }
+}
+
+function monSaveToStorage() {
+  try {
+    const data = {
+      sources: monState.sources,
+      cocosKeywords: monState.cocosKeywords,
+      autoRefresh: monState.autoRefresh,
+      autoRefreshMinutes: monState.autoRefreshMinutes,
+      revisados: Array.from(monState.revisados),
+      filters: {
+        search: document.getElementById('searchInput').value,
+        type: document.getElementById('filterType').value,
+        source: document.getElementById('filterSource').value,
+      },
+      lastUpdate: monState.lastUpdate,
+      notionToken: monState.notionToken,
+      notionDbId: monState.notionDbId,
+    };
+    localStorage.setItem('cocos_monitor_state', JSON.stringify(data));
+  } catch (e) {
+    console.warn('Error guardando estado:', e);
+  }
+}
+
+/* ============================================================
+   CORS — ESTRATEGIA EN CASCADA
+   ============================================================ */
+async function fetchWithCORS(url) {
+  for (const proxy of CORS_PROXIES) {
+    try {
+      const proxyUrl = proxy.fn(url);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      const resp = await fetch(proxyUrl, {
+        signal: controller.signal,
+        headers: { 'Accept': 'text/html,application/xhtml+xml,*/*' }
+      });
+      clearTimeout(timeout);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const text = await resp.text();
+      if (!text || text.length < 50) throw new Error('Respuesta vacía');
+      return { html: text, proxy: proxy.name };
+    } catch (e) {
+      console.warn(`[${proxy.name}] Falló para ${url}:`, e.message);
+      continue;
+    }
+  }
+  return { html: null, proxy: null };
+}
+
+/* ============================================================
+   CLASIFICADOR DE AVISOS
+   ============================================================ */
+function classify(text) {
+  if (!text) return { code: 'otro', label: 'Otro' };
+  const t = text.toLowerCase();
+
+  const rules = [
+    { code: 'licit', label: 'Suscripción / Licitación', kw: ['aviso de suscripci', 'licitaci\u00f3n primaria', 'colocaci\u00f3n', 'apertura de libro', 'licitación', 'suscripcion', 'suscripción', 'invitación a presentar ofertas', 'convocatoria a licitaci'] },
+    { code: 'res', label: 'Resultado de colocación', kw: ['resultado de colocaci', 'adjudicaci', 'tasa de corte', 'resultado de licitaci', 'precio de corte'] },
+    { code: 'canje', label: 'Canje / Reestructuración', kw: ['canje', 'reestructuraci', 'reordenamiento financiero', 'conversi\u00f3n de deuda', 'conversión'] },
+    { code: 'on', label: 'Obligaciones Negociables', kw: ['obligaciones negociables', 'obligación negociable', 'clase ', 'serie '] },
+    { code: 'tp', label: 'Títulos Públicos', kw: ['título público', 'titulo publico', 'bono ', 'letra del tesoro', 'lecap', 'boncap', 'boncer', 'bopreal'] },
+    { code: 'pago', label: 'Pago de servicios', kw: ['aviso de pago', 'pago de renta', 'amortizaci', 'cup\u00f3n', 'cupón', 'pago de servicio', 'servicio de renta'] },
+    { code: 'dividendo', label: 'Dividendos', kw: ['dividendo', 'distribución de utilidades', 'distribucion de utilidades'] },
+    { code: 'evento', label: 'Evento corporativo', kw: ['evento corporativo', 'split', 'fusión', 'absorción', 'escisión', 'canje de acciones', 'fusion', 'absorcion'] },
+    { code: 'asamblea', label: 'Asamblea', kw: ['convocatoria a asamblea', 'acta de asamblea', 'síntesis de resoluciones', 'asamblea general', 'asamblea extraordinaria', 'asamblea ordinaria'] },
+    { code: 'cedear', label: 'CEDEAR', kw: ['cedear', 'hecho relevante de cedear'] },
+    { code: 'hechorel', label: 'Hecho relevante', kw: ['hecho relevante', 'hecho esencial', 'información relevante'] },
+  ];
+
+  for (const rule of rules) {
+    for (const kw of rule.kw) {
+      if (t.includes(kw)) return { code: rule.code, label: rule.label };
+    }
+  }
+  return { code: 'otro', label: 'Otro' };
+}
+
+/* ============================================================
+   DETECCIÓN DE COCOS CAPITAL
+   ============================================================ */
+function isCocos(text) {
+  if (!text) return false;
+  const t = text.toLowerCase();
+  return monState.cocosKeywords.some(kw => t.includes(kw.toLowerCase().trim()));
+}
+
+function highlightKeywords(text) {
+  if (!text) return '';
+  let result = escapeHtml(text);
+  for (const kw of monState.cocosKeywords) {
+    const trimmed = kw.trim();
+    if (!trimmed) continue;
+    const regex = new RegExp(`(${escapeRegex(trimmed)})`, 'gi');
+    result = result.replace(regex, '<span class="keyword-highlight">$1</span>');
+  }
+  return result;
+}
+
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+/* ============================================================
+   PARSERS ESPECÍFICOS POR FUENTE
+   ============================================================ */
+
+// Utilidad: parsear una tabla HTML genérica
+function parseHTMLTable(doc, tableSelector) {
+  const rows = [];
+  const table = doc.querySelector(tableSelector || 'table');
+  if (!table) return rows;
+  const trs = table.querySelectorAll('tbody tr, tr');
+  trs.forEach(tr => {
+    const cells = Array.from(tr.querySelectorAll('td')).map(td => ({
+      text: td.textContent.trim(),
+      html: td.innerHTML,
+      link: td.querySelector('a')?.href || ''
+    }));
+    if (cells.length > 0) rows.push(cells);
+  });
+  return rows;
+}
+
+// Crear un DOMParser seguro
+function parseHTML(html) {
+  const parser = new DOMParser();
+  return parser.parseFromString(html, 'text/html');
+}
+
+// --- Parser: Bolsar Emisoras ---
+function parseBolsarEmisoras(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  const rows = doc.querySelectorAll('table tr');
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length < 4) return;
+    const fechaRaw = tds[0]?.textContent.trim() || '';
+    const emisor = tds[1]?.textContent.trim() || '';
+    const ticker = tds[2]?.textContent.trim() || '';
+    const desc = tds[3]?.textContent.trim() || '';
+    const link = tr.querySelector('a[href]')?.getAttribute('href') || '';
+    const fullLink = link.startsWith('http') ? link : (link ? `https://ws.bolsar.info/descarga/?id=${link.replace(/\D/g, '')}` : '');
+
+    const { fecha, hora } = parseFecha(fechaRaw);
+    const tipo = classify(`${desc} ${emisor} ${ticker}`);
+
+    avisos.push({
+      fecha, hora, emisor, ticker, desc, tipo,
+      link: fullLink,
+      source: sourceId,
+      cocos: isCocos(`${desc} ${emisor}`),
+      id: `${sourceId}_${fecha}_${emisor}_${desc}`.substring(0, 120),
+    });
+  });
+  return avisos;
+}
+
+// --- Parser: BYMA Avisos ---
+function parseBYMAAvisos(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  const rows = doc.querySelectorAll('table tr, .aviso-item, .list-group-item');
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length < 2) {
+      // Intento alternativo: div con texto
+      const text = tr.textContent.trim();
+      if (text.length > 10) {
+        const link = tr.querySelector('a[href]')?.getAttribute('href') || '';
+        const tipo = classify(text);
+        avisos.push({
+          fecha: hoy(), hora: '', emisor: '', ticker: '', desc: text, tipo,
+          link: link.startsWith('http') ? link : '',
+          source: sourceId, cocos: isCocos(text),
+          id: `${sourceId}_${text}`.substring(0, 120),
+        });
+      }
+      return;
+    }
+    const fechaRaw = tds[0]?.textContent.trim() || '';
+    const desc = Array.from(tds).slice(1).map(td => td.textContent.trim()).join(' — ');
+    const link = tr.querySelector('a[href]')?.getAttribute('href') || '';
+    const { fecha, hora } = parseFecha(fechaRaw);
+    const tipo = classify(desc);
+    avisos.push({
+      fecha, hora, emisor: '', ticker: '', desc, tipo,
+      link: link.startsWith('http') ? link : '',
+      source: sourceId, cocos: isCocos(desc),
+      id: `${sourceId}_${fecha}_${desc}`.substring(0, 120),
+    });
+  });
+  return avisos;
+}
+
+// --- Parser: CNV Hechos Relevantes ---
+function parseCNVHechos(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  // La CNV puede usar distintas estructuras, intentamos varias
+  const items = doc.querySelectorAll('.row-hechos, table tr, .list-group-item, .hecho-item, [class*="hecho"]');
+  items.forEach(item => {
+    const text = item.textContent.trim();
+    if (text.length < 10) return;
+    const link = item.querySelector('a[href]')?.getAttribute('href') || '';
+    const fullLink = link.startsWith('http') ? link : (link ? `https://www.cnv.gov.ar${link}` : '');
+    // Intentar extraer fecha del texto
+    const { fecha, hora } = extractDateFromText(text);
+    const tipo = classify(text);
+    avisos.push({
+      fecha: fecha || hoy(), hora, emisor: '', ticker: '', desc: text.substring(0, 300), tipo,
+      link: fullLink, source: sourceId, cocos: isCocos(text),
+      id: `${sourceId}_${text}`.substring(0, 120),
+    });
+  });
+  return avisos;
+}
+
+// --- Parser: CNV Noticias ---
+function parseCNVNoticias(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  const items = doc.querySelectorAll('.noticia-item, .card, .list-group-item, table tr, article, [class*="noticia"]');
+  items.forEach(item => {
+    const text = item.textContent.trim();
+    if (text.length < 10) return;
+    const link = item.querySelector('a[href]')?.getAttribute('href') || '';
+    const fullLink = link.startsWith('http') ? link : (link ? `https://www.cnv.gov.ar${link}` : '');
+    const { fecha, hora } = extractDateFromText(text);
+    avisos.push({
+      fecha: fecha || hoy(), hora, emisor: 'CNV', ticker: '', desc: text.substring(0, 300),
+      tipo: { code: 'hechorel', label: 'Hecho relevante' },
+      link: fullLink, source: sourceId, cocos: isCocos(text),
+      id: `${sourceId}_${text}`.substring(0, 120),
+    });
+  });
+  return avisos;
+}
+
+// --- Parser: Secretaría de Finanzas ---
+function parseFinanzas(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  const links = doc.querySelectorAll('a[href]');
+  links.forEach(a => {
+    const text = a.textContent.trim();
+    if (text.length < 5) return;
+    const href = a.getAttribute('href') || '';
+    const fullLink = href.startsWith('http') ? href : (href ? `https://www.economia.gob.ar${href}` : '');
+    // Buscar fecha en contexto cercano
+    const parent = a.closest('tr, li, div, p');
+    const context = parent ? parent.textContent.trim() : text;
+    const { fecha, hora } = extractDateFromText(context);
+    const tipo = classify(context);
+    if (tipo.code !== 'otro' || context.toLowerCase().includes('licitaci')) {
+      avisos.push({
+        fecha: fecha || hoy(), hora, emisor: 'Tesoro Nacional', ticker: '', desc: context.substring(0, 300), tipo,
+        link: fullLink, source: sourceId, cocos: isCocos(context),
+        id: `${sourceId}_${context}`.substring(0, 120),
+      });
+    }
+  });
+  return avisos;
+}
+
+// --- Parser: MAE Licitaciones ---
+function parseMAE(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  const items = doc.querySelectorAll('table tr, .licitacion-item, .card, [class*="licit"]');
+  items.forEach(item => {
+    const tds = item.querySelectorAll('td');
+    const text = item.textContent.trim();
+    if (text.length < 10) return;
+    const link = item.querySelector('a[href]')?.getAttribute('href') || '';
+    const fullLink = link.startsWith('http') ? link : (link ? `https://www.mae.com.ar${link}` : '');
+    const { fecha, hora } = extractDateFromText(text);
+    const tipo = classify(text);
+    avisos.push({
+      fecha: fecha || hoy(), hora, emisor: '', ticker: '', desc: text.substring(0, 300), tipo,
+      link: fullLink, source: sourceId, cocos: isCocos(text),
+      id: `${sourceId}_${text}`.substring(0, 120),
+    });
+  });
+  return avisos;
+}
+
+// --- Parser: Comafi (genérico para las 3 páginas) ---
+function parseComafi(html, sourceId, defaultType) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  const rows = doc.querySelectorAll('table tr');
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if (tds.length < 2) return;
+    const cells = Array.from(tds).map(td => td.textContent.trim());
+    const link = tr.querySelector('a[href]')?.getAttribute('href') || '';
+    const fullLink = link.startsWith('http') ? link : (link ? `https://www.comafi.com.ar${link}` : '');
+    const text = cells.join(' — ');
+    const { fecha, hora } = extractDateFromText(text);
+    const tipo = classify(text);
+    avisos.push({
+      fecha: fecha || hoy(), hora,
+      emisor: cells[0] || '', ticker: cells.length > 2 ? cells[1] : '',
+      desc: text.substring(0, 300),
+      tipo: tipo.code !== 'otro' ? tipo : defaultType,
+      link: fullLink, source: sourceId, cocos: isCocos(text),
+      id: `${sourceId}_${text}`.substring(0, 120),
+    });
+  });
+  return avisos;
+}
+
+// --- Parser genérico de fallback ---
+function parseGeneric(html, sourceId) {
+  const doc = parseHTML(html);
+  const avisos = [];
+  // Intentar tablas primero
+  const tableRows = doc.querySelectorAll('table tr');
+  if (tableRows.length > 2) {
+    tableRows.forEach(tr => {
+      const text = tr.textContent.trim();
+      if (text.length < 15) return;
+      const link = tr.querySelector('a[href]')?.getAttribute('href') || '';
+      const { fecha } = extractDateFromText(text);
+      avisos.push({
+        fecha: fecha || hoy(), hora: '', emisor: '', ticker: '',
+        desc: text.substring(0, 300), tipo: classify(text),
+        link: link || '', source: sourceId, cocos: isCocos(text),
+        id: `${sourceId}_${text}`.substring(0, 120),
+      });
+    });
+  } else {
+    // Buscar links con contexto
+    doc.querySelectorAll('a[href]').forEach(a => {
+      const text = a.textContent.trim();
+      const parent = a.closest('li, p, div, tr');
+      const context = parent ? parent.textContent.trim() : text;
+      if (context.length < 15) return;
+      const { fecha } = extractDateFromText(context);
+      avisos.push({
+        fecha: fecha || hoy(), hora: '', emisor: '', ticker: '',
+        desc: context.substring(0, 300), tipo: classify(context),
+        link: a.getAttribute('href') || '', source: sourceId, cocos: isCocos(context),
+        id: `${sourceId}_${context}`.substring(0, 120),
+      });
+    });
+  }
+  return avisos;
+}
+
+// Mapa de parsers por sourceId
+function getParser(sourceId) {
+  const parsers = {
+    'bolsar_emisoras': parseBolsarEmisoras,
+    'byma_avisos': parseBYMAAvisos,
+    'cnv_hechos': parseCNVHechos,
+    'cnv_noticias': parseCNVNoticias,
+    'finanzas': parseFinanzas,
+    'mae': parseMAE,
+    'comafi_dividendos': (html, sid) => parseComafi(html, sid, { code: 'dividendo', label: 'Dividendos' }),
+    'comafi_pagos': (html, sid) => parseComafi(html, sid, { code: 'pago', label: 'Pago de servicios' }),
+    'comafi_eventos': (html, sid) => parseComafi(html, sid, { code: 'evento', label: 'Evento corporativo' }),
+  };
+  return parsers[sourceId] || parseGeneric;
+}
+
+/* ============================================================
+   UTILIDADES DE FECHA
+   ============================================================ */
+function hoy() {
+  return new Date().toISOString().split('T')[0];
+}
+
+function parseFecha(raw) {
+  if (!raw) return { fecha: hoy(), hora: '' };
+  // Intentar DD/MM/AAAA HH:MM
+  const match1 = raw.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})\s*(\d{1,2}:\d{2})?/);
+  if (match1) {
+    const y = match1[3].length === 2 ? '20' + match1[3] : match1[3];
+    const m = match1[2].padStart(2, '0');
+    const d = match1[1].padStart(2, '0');
+    return { fecha: `${y}-${m}-${d}`, hora: match1[4] || '' };
+  }
+  // Intentar AAAA-MM-DD
+  const match2 = raw.match(/(\d{4})-(\d{2})-(\d{2})\s*(\d{1,2}:\d{2})?/);
+  if (match2) {
+    return { fecha: `${match2[1]}-${match2[2]}-${match2[3]}`, hora: match2[4] || '' };
+  }
+  return { fecha: hoy(), hora: '' };
+}
+
+function extractDateFromText(text) {
+  if (!text) return { fecha: null, hora: '' };
+  // DD/MM/AAAA
+  const m1 = text.match(/(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2,4})/);
+  if (m1) {
+    const y = m1[3].length === 2 ? '20' + m1[3] : m1[3];
+    return { fecha: `${y}-${m1[2].padStart(2,'0')}-${m1[1].padStart(2,'0')}`, hora: '' };
+  }
+  // AAAA-MM-DD
+  const m2 = text.match(/(\d{4})-(\d{2})-(\d{2})/);
+  if (m2) return { fecha: `${m2[1]}-${m2[2]}-${m2[3]}`, hora: '' };
+  return { fecha: null, hora: '' };
+}
+
+function formatFechaDisplay(fecha) {
+  if (!fecha) return '—';
+  const parts = fecha.split('-');
+  if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
+  return fecha;
+}
+
+/* ============================================================
+   DATOS DE DEMOSTRACIÓN
+   ============================================================ */
+function generateDemoData() {
+  const today = hoy();
+  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const twoDaysAgo = new Date(Date.now() - 172800000).toISOString().split('T')[0];
+
+  return [
+    { fecha: today, hora: '10:30', emisor: 'YPF S.A.', ticker: 'YPFD', desc: 'Aviso de suscripción — Obligaciones Negociables Clase XLVIII. Colocadores: Cocos Capital, Banco Galicia, BBVA', tipo: { code: 'licit', label: 'Suscripción / Licitación' }, link: '#', source: 'bolsar_emisoras', cocos: true, id: 'demo_1' },
+    { fecha: today, hora: '09:15', emisor: 'Pampa Energía S.A.', ticker: 'PAMP', desc: 'Resultado de colocación — ON Clase 15 — Tasa de corte: BADLAR + 3.5%', tipo: { code: 'res', label: 'Resultado de colocación' }, link: '#', source: 'bolsar_emisoras', cocos: false, id: 'demo_2' },
+    { fecha: today, hora: '11:00', emisor: 'Tesoro Nacional', ticker: 'LECAP', desc: 'Licitación primaria — LECAP S31M6 y BONCAP T13F7 — Apertura de libro', tipo: { code: 'licit', label: 'Suscripción / Licitación' }, link: '#', source: 'finanzas', cocos: false, id: 'demo_3' },
+    { fecha: today, hora: '14:00', emisor: 'Tesoro Nacional', ticker: 'LECAP', desc: 'Resultado de licitación — LECAP S31M6 adjudicado al 3.25% TEM — Cocos Capital participó como colocador', tipo: { code: 'res', label: 'Resultado de colocación' }, link: '#', source: 'finanzas', cocos: true, id: 'demo_4' },
+    { fecha: yesterday, hora: '16:30', emisor: 'Banco Macro S.A.', ticker: 'BMA', desc: 'Pago de renta — ON Serie 8 — Cupón semestral USD 4.75%', tipo: { code: 'pago', label: 'Pago de servicios' }, link: '#', source: 'comafi_pagos', cocos: false, id: 'demo_5' },
+    { fecha: yesterday, hora: '10:00', emisor: 'Telecom Argentina S.A.', ticker: 'TECO2', desc: 'Distribución de dividendos en efectivo — $150 por acción', tipo: { code: 'dividendo', label: 'Dividendos' }, link: '#', source: 'comafi_dividendos', cocos: false, id: 'demo_6' },
+    { fecha: yesterday, hora: '12:00', emisor: 'Ternium Argentina S.A.', ticker: 'TXAR', desc: 'Convocatoria a Asamblea General Ordinaria — 15/04/2026', tipo: { code: 'asamblea', label: 'Asamblea' }, link: '#', source: 'cnv_hechos', cocos: false, id: 'demo_7' },
+    { fecha: twoDaysAgo, hora: '09:00', emisor: 'Cresud S.A.', ticker: 'CRES', desc: 'Hecho relevante — Adquisición de participación accionaria en subsidiaria', tipo: { code: 'hechorel', label: 'Hecho relevante' }, link: '#', source: 'cnv_hechos', cocos: false, id: 'demo_8' },
+    { fecha: twoDaysAgo, hora: '15:00', emisor: 'IRSA Propiedades Comerciales', ticker: 'IRCP', desc: 'Aviso de suscripción — ON Clase III — Cocos Capital como co-colocador', tipo: { code: 'on', label: 'Obligaciones Negociables' }, link: '#', source: 'mae', cocos: true, id: 'demo_9' },
+    { fecha: twoDaysAgo, hora: '11:30', emisor: 'Apple Inc.', ticker: 'AAPL', desc: 'CEDEAR — Hecho relevante — Recompra de acciones aprobada por USD 100B', tipo: { code: 'cedear', label: 'CEDEAR' }, link: '#', source: 'byma_avisos', cocos: false, id: 'demo_10' },
+    { fecha: today, hora: '08:45', emisor: 'Arcor S.A.I.C.', ticker: '', desc: 'Obligaciones Negociables Clase 12 — Serie A y B — Cocos Capital como organizador y colocador', tipo: { code: 'on', label: 'Obligaciones Negociables' }, link: '#', source: 'mae', cocos: true, id: 'demo_11' },
+    { fecha: today, hora: '13:00', emisor: 'Central Puerto S.A.', ticker: 'CEPU', desc: 'Evento corporativo — Fusión por absorción con CP Renovables S.A.', tipo: { code: 'evento', label: 'Evento corporativo' }, link: '#', source: 'comafi_eventos', cocos: false, id: 'demo_12' },
+  ];
+}
+
+/* ============================================================
+   FETCH DE TODAS LAS FUENTES
+   ============================================================ */
+async function monitorFetchAll() {
+  const btn = document.getElementById('btnRefresh');
+  btn.disabled = true;
+  btn.textContent = '⏳ Consultando...';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('avisosBody').innerHTML = '';
+
+  let allAvisos = [];
+  const activeSources = monState.sources.filter(s => s.active);
+  let usedDemo = false;
+
+  for (const source of activeSources) {
+    try {
+      const { html, proxy } = await fetchWithCORS(source.url);
+      if (html) {
+        const parser = getParser(source.id);
+        const parsed = parser(html, source.id);
+        if (parsed.length > 0) {
+          allAvisos.push(...parsed);
+          monState.sourceStatus[source.id] = {
+            status: 'ok', lastFetch: new Date().toLocaleString('es-AR'),
+            count: parsed.length, proxy
+          };
+        } else {
+          // Parseó pero no encontró avisos
+          monState.sourceStatus[source.id] = {
+            status: 'partial', lastFetch: new Date().toLocaleString('es-AR'),
+            count: 0, proxy, note: 'Sin avisos detectados'
+          };
+        }
+      } else {
+        monState.sourceStatus[source.id] = {
+          status: 'error', lastFetch: new Date().toLocaleString('es-AR'),
+          count: 0, proxy: null
+        };
+      }
+    } catch (e) {
+      console.error(`Error con fuente ${source.id}:`, e);
+      monState.sourceStatus[source.id] = {
+        status: 'error', lastFetch: new Date().toLocaleString('es-AR'),
+        count: 0, proxy: null
+      };
+    }
+  }
+
+  // Si no se obtuvieron avisos reales, usar datos demo
+  if (allAvisos.length === 0) {
+    allAvisos = generateDemoData();
+    usedDemo = true;
+    showToast('No se pudo acceder a las fuentes reales. Mostrando datos de demostración.', 'warning');
+  }
+
+  // Deduplicar por ID
+  const seen = new Set();
+  monState.avisos = allAvisos.filter(a => {
+    if (seen.has(a.id)) return false;
+    seen.add(a.id);
+    return true;
+  });
+
+  // Ordenar por fecha desc
+  monState.avisos.sort((a, b) => {
+    const cmp = (b.fecha || '').localeCompare(a.fecha || '');
+    if (cmp !== 0) return cmp;
+    return (b.hora || '').localeCompare(a.hora || '');
+  });
+
+  monState.lastUpdate = new Date();
+  monState.currentPage = 1;
+  document.getElementById('loadingState').style.display = 'none';
+  btn.disabled = false;
+  btn.textContent = '🔄 Actualizar';
+
+  updateLastUpdateLabel();
+  applyFilters();
+  ;
+  monSaveToStorage();
+
+  if (!usedDemo && allAvisos.length > 0) {
+    showToast(`Se obtuvieron ${allAvisos.length} avisos de ${activeSources.length} fuentes.`, 'success');
+  }
+}
+
+/* ============================================================
+   FILTROS
+   ============================================================ */
+function applyFilters() {
+  const search = document.getElementById('searchInput').value.toLowerCase().trim();
+  const type = document.getElementById('filterType').value;
+  const source = document.getElementById('filterSource').value;
+  const { dateFrom, dateTo } = getDateRange();
+
+  let list = monState.avisos;
+
+  // Filtro por tab
+  if (monState.currentTab === 'cocos') {
+    list = list.filter(a => a.cocos);
+  }
+
+  // Filtro por texto
+  if (search) {
+    list = list.filter(a => {
+      const haystack = `${a.emisor} ${a.ticker} ${a.desc} ${a.tipo?.label || ''}`.toLowerCase();
+      return haystack.includes(search);
+    });
+  }
+
+  // Filtro por tipo
+  if (type) {
+    list = list.filter(a => a.tipo?.code === type);
+  }
+
+  // Filtro por fuente
+  if (source) {
+    list = list.filter(a => a.source === source);
+  }
+
+  // Filtro por fecha
+  if (dateFrom) {
+    list = list.filter(a => a.fecha >= dateFrom);
+  }
+  if (dateTo) {
+    list = list.filter(a => a.fecha <= dateTo);
+  }
+
+  monState.filteredAvisos = list;
+  monState.currentPage = 1;
+  updateStats();
+  monitorRender();
+  monSaveToStorage();
+}
+
+function getDateRange() {
+  const preset = document.getElementById('filterDatePreset').value;
+  const todayStr = hoy();
+  const d = new Date();
+
+  if (preset === 'hoy') return { dateFrom: todayStr, dateTo: todayStr };
+  if (preset === 'ayer') {
+    const y = new Date(d - 86400000).toISOString().split('T')[0];
+    return { dateFrom: y, dateTo: y };
+  }
+  if (preset === '3d') {
+    return { dateFrom: new Date(d - 3 * 86400000).toISOString().split('T')[0], dateTo: todayStr };
+  }
+  if (preset === '7d') {
+    return { dateFrom: new Date(d - 7 * 86400000).toISOString().split('T')[0], dateTo: todayStr };
+  }
+  if (preset === 'mes') {
+    return { dateFrom: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-01`, dateTo: todayStr };
+  }
+  if (preset === 'custom') {
+    return {
+      dateFrom: document.getElementById('dateFrom').value || null,
+      dateTo: document.getElementById('dateTo').value || null,
+    };
+  }
+  return { dateFrom: null, dateTo: null };
+}
+
+function handleDatePreset() {
+  const preset = document.getElementById('filterDatePreset').value;
+  document.getElementById('customDateRange').style.display = preset === 'custom' ? 'flex' : 'none';
+  applyFilters();
+}
+
+/* ============================================================
+   ESTADÍSTICAS
+   ============================================================ */
+function updateStats() {
+  const all = monState.avisos;
+  const filtered = monState.filteredAvisos;
+  const cocosCount = all.filter(a => a.cocos).length;
+  const licitCount = all.filter(a => a.tipo?.code === 'licit').length;
+  const resCount = all.filter(a => a.tipo?.code === 'res').length;
+
+  document.getElementById('statTotal').textContent = all.length;
+  document.getElementById('statLicit').textContent = licitCount;
+  document.getElementById('statRes').textContent = resCount;
+  document.getElementById('statCocos').textContent = cocosCount;
+  document.getElementById('badgeTotal').textContent = all.length;
+  document.getElementById('badgeCocos').textContent = cocosCount;
+}
+
+/* ============================================================
+   RENDER DE TABLA
+
+// Monitor render (integrated version)
+function monitorRender() {
+  const list = document.getElementById('mon-list');
+  const statsEl = document.getElementById('mon-stats');
+  if (!list) return;
+
+  let avisos = [...monState.avisos];
+  
+  // Filters
+  const src = document.getElementById('mon-filter-source')?.value || '';
+  const tipo = document.getElementById('mon-filter-tipo')?.value || '';
+  const search = (document.getElementById('mon-filter-search')?.value || '').toLowerCase();
+  const soloCocos = document.getElementById('mon-filter-cocos')?.checked;
+
+  if (src) avisos = avisos.filter(a => a.source === src);
+  if (tipo) avisos = avisos.filter(a => a.tipo?.code === tipo);
+  if (search) avisos = avisos.filter(a => (a.desc + ' ' + a.emisor + ' ' + a.ticker).toLowerCase().includes(search));
+  if (soloCocos) avisos = avisos.filter(a => a.cocos);
+
+  // Stats
+  const cocosMentions = monState.avisos.filter(a => a.cocos).length;
+  if (statsEl) {
+    statsEl.innerHTML = [
+      `<div class="stat-card s1" style="padding:10px 14px;flex:none"><div class="stat-num" style="font-size:1.2rem">${monState.avisos.length}</div><div class="stat-label">Total avisos</div></div>`,
+      `<div class="stat-card" style="padding:10px 14px;flex:none;border-left-color:var(--terra)"><div class="stat-num" style="font-size:1.2rem;color:var(--terra)">${cocosMentions}</div><div class="stat-label">Mencionan Cocos</div></div>`,
+      `<div class="stat-card" style="padding:10px 14px;flex:none;border-left-color:var(--sage)"><div class="stat-num" style="font-size:1.2rem">${avisos.length}</div><div class="stat-label">Mostrando</div></div>`,
+    ].join('');
+  }
+
+  if (!avisos.length) {
+    list.innerHTML = '<div style="text-align:center;padding:60px;color:#ccc;font-size:0.88rem">Sin avisos que coincidan</div>';
+    return;
+  }
+
+  const TIPO_LABELS = {
+    licitacion: 'Licitación', colocacion: 'Colocación', dividendo: 'Dividendo',
+    amortizacion: 'Amortización', hecho: 'Hecho relevante', otro: 'Otro'
+  };
+  const TIPO_COLORS_MON = {
+    licitacion: {bg:'#dbeafe',color:'#1e40af'}, colocacion: {bg:'#d1fae5',color:'#065f46'},
+    dividendo: {bg:'#fce7f3',color:'#9d174d'}, amortizacion: {bg:'#f3e8ff',color:'#6b21a8'},
+    hecho: {bg:'#fef3c7',color:'#92400e'}, otro: {bg:'#f3f4f6',color:'#4b5563'}
+  };
+
+  list.innerHTML = avisos.slice(0, 100).map((a, i) => {
+    const tc = TIPO_COLORS_MON[a.tipo?.code] || TIPO_COLORS_MON.otro;
+    const tLabel = TIPO_LABELS[a.tipo?.code] || 'Otro';
+    const srcName = monState.sources.find(s => s.id === a.source)?.name || a.source;
+    return `<div style="background:white;border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;box-shadow:var(--shadow-sm)${a.cocos?' border-left:3px solid var(--terra)':''}">
+      <div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">
+            <span class="badge" style="background:${tc.bg};color:${tc.color}">${tLabel}</span>
+            ${a.cocos ? '<span class="badge" style="background:#fee2e2;color:#991b1b">🥥 Cocos</span>' : ''}
+            ${a.emisor ? `<span style="font-size:0.75rem;font-weight:700;color:var(--ink2)">${escHtml(a.emisor)}</span>` : ''}
+            ${a.ticker ? `<span style="font-size:0.72rem;font-family:monospace;background:var(--cream);padding:2px 7px;border-radius:6px;color:#6b84a8">${escHtml(a.ticker)}</span>` : ''}
+            <span style="font-size:0.7rem;color:#bbb;margin-left:auto">${escHtml(srcName)} · ${a.fecha||''}</span>
+          </div>
+          <div style="font-size:0.82rem;color:var(--ink2);line-height:1.5">${escHtml((a.desc||'').substring(0,300))}${(a.desc||'').length>300?'…':''}</div>
+          ${a.link ? `<a href="${escHtml(a.link)}" target="_blank" style="font-size:0.72rem;color:var(--terra);text-decoration:none;margin-top:6px;display:inline-block">Ver fuente →</a>` : ''}
+        </div>
+        <button class="btn-confirm" style="font-size:0.75rem;padding:7px 14px;white-space:nowrap;flex-shrink:0" onclick="monitorSendToBitacora(${i})">+ Bitácora</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// Map monitor tipo code to bitácora tipo
+function monitorMapTipo(code) {
+  const map = {
+    licitacion: 'Licitación Tesoro', colocacion: 'Colocación Primaria',
+    dividendo: 'Dividendos', amortizacion: 'Amortización',
+    hecho: 'Evento Corporativo', otro: 'Otro'
+  };
+  return map[code] || 'Otro';
+}
+
+function monitorSendToBitacora(idx) {
+  const src = document.getElementById('mon-filter-source')?.value || '';
+  const tipo = document.getElementById('mon-filter-tipo')?.value || '';
+  const search = (document.getElementById('mon-filter-search')?.value || '').toLowerCase();
+  const soloCocos = document.getElementById('mon-filter-cocos')?.checked;
+  let avisos = [...monState.avisos];
+  if (src) avisos = avisos.filter(a => a.source === src);
+  if (tipo) avisos = avisos.filter(a => a.tipo?.code === tipo);
+  if (search) avisos = avisos.filter(a => (a.desc+' '+a.emisor+' '+a.ticker).toLowerCase().includes(search));
+  if (soloCocos) avisos = avisos.filter(a => a.cocos);
+
+  const a = avisos[idx];
+  if (!a) return;
+
+  // Look up ticker in instrumento base
+  const tickerKey = (a.ticker||'').toUpperCase();
+  const info = tickerKey ? lookupInstrumento(tickerKey) : null;
+
+  const data = {
+    nombre: info?.nombre || a.ticker || a.emisor || a.desc?.substring(0,60) || '',
+    tipo: monitorMapTipo(a.tipo?.code),
+    empresa: info?.emisor || a.emisor || '',
+    fecha: a.fecha ? isoDate(a.fecha.split(' ')[0]) : '',
+    estado: 'Anunciado',
+    monto: '',
+    moneda: '',
+    notas: (a.desc||'').substring(0,400),
+    confianza: 'media',
+    link: a.link || ''
+  };
+
+  // Switch to cargar tab and add review card
+  switchTab('cargar');
+  document.getElementById('review-section').style.display = 'block';
+  addReviewCard(data, `Monitor: ${monState.sources.find(s=>s.id===a.source)?.name||a.source}`);
+  showToast('✓ Aviso enviado a revisión — confirmá en Cargar documentos');
+}
+
+function monitorRenderSourceFilter() {
+  const sel = document.getElementById('mon-filter-source');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">Todas las fuentes</option>' +
+    monState.sources.map(s => `<option value="${escHtml(s.id)}">${escHtml(s.name)}</option>`).join('');
+}
+
+
 // ════════════════════════════════
 //  INIT
 // ════════════════════════════════
@@ -2994,6 +3908,8 @@ document.getElementById('hdr-count').textContent = history.length;
 const _savedKey = getApiKey();
 if (_savedKey) updateKeyStatus(_savedKey);
 renderTabs();
+monLoadFromStorage();
+monitorRenderSourceFilter();
 updateStats();
 renderTable();
 renderTipos();
