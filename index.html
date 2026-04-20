@@ -531,6 +531,10 @@ body.dark .sheets-action-card{background:var(--surf-1)}
         <span id="sheets-sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--green);display:none"></span>
       </button>
       <button class="btn-out" onclick="doLogout()">Salir</button>
+      <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--b0);border-radius:var(--r-sm);font-size:11px;color:var(--t3)">
+        <span id="sb-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s"></span>
+        <span id="sb-status-lbl">Local</span>
+      </div>
     </div>
   </header>
 
@@ -1227,13 +1231,155 @@ let DB = {
 };
 let CU=null, DFdays=7, calDt=new Date(), pendImgs=[], _cuadSel='all';
 
+// ─── SUPABASE CONFIG ──────────────────
+const SB_URL='https://eeooeuamhykqhcivzdip.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlb29ldWFtaHlrcWhjaXZ6ZGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxMjQsImV4cCI6MjA5MTY3MjEyNH0.aLPo9oyK9FxQpriIfR3edC4zxBLJZvE9hgS-6sd3q1g';
+const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+let SB_OK=false; // true once we confirm Supabase is reachable
+
+// Low-level helpers
+async function sbGet(table,query=''){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/${table}?${query}`,{headers:SB_H});
+    if(!r.ok)return null;
+    return r.json();
+  }catch(e){return null;}
+}
+async function sbUpsert(table,data){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/${table}`,{
+      method:'POST',
+      headers:{...SB_H,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify(Array.isArray(data)?data:[data])
+    });
+    return r.ok;
+  }catch(e){return false;}
+}
+async function sbDelete(table,id){
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/${table}?id=eq.${id}`,{method:'DELETE',headers:SB_H});
+    return r.ok;
+  }catch(e){return false;}
+}
+
+// ─── STATUS INDICATOR ─────────────────
+function setSBStatus(ok){
+  SB_OK=ok;
+  const dot=document.getElementById('sb-status-dot');
+  const lbl=document.getElementById('sb-status-lbl');
+  if(dot)dot.style.background=ok?'var(--green)':'var(--amber)';
+  if(lbl)lbl.textContent=ok?'Supabase':'Local';
+}
+
 // ─── PERSIST ─────────────────────────────
-function saveDB(){try{localStorage.setItem('cc_bit_v3',JSON.stringify(DB));}catch(e){}}
-function loadDB(){
-  try{const r=localStorage.getItem('cc_bit_v3');if(r){const p=JSON.parse(r);DB={...DB,...p};}}catch(e){}
+function saveDB(){
+  try{localStorage.setItem('cc_bit_v3',JSON.stringify(DB));}catch(e){}
+  // Sync to Supabase in background
+  if(SB_OK&&DB.events.length){
+    sbUpsert('bit_events', DB.events.map(sbEventRow));
+  }
+}
+
+// Sync to Supabase in background — fire & forget, never blocks UI
+function sbSync(action, table, data){
+  if(!SB_OK)return;
+  if(action==='upsert') sbUpsert(table, data);
+  if(action==='delete') sbDelete(table, data); // data = id string
+}
+
+async function loadDB(){
+  // 1. Load from localStorage immediately (instant)
+  try{
+    const r=localStorage.getItem('cc_bit_v3');
+    if(r){const p=JSON.parse(r);DB={...DB,...p};}
+  }catch(e){}
   if(!DB.users.find(u=>u.email==='mirdiaz@cocos.capital'))
     DB.users.unshift({id:'u1',email:'mirdiaz@cocos.capital',name:'Mir Díaz',role:'admin',pass:'admin123',active:true,created:new Date().toISOString()});
+
+  // 2. Try Supabase — fetch events, comments, notifications
+  try{
+    const [evData, cmtData, notifData] = await Promise.all([
+      sbGet('bit_events','select=*&order=date.desc'),
+      sbGet('bit_comments','select=*&order=ts.asc'),
+      sbGet('bit_notifications','select=*&order=ts.desc&limit=200')
+    ]);
+    if(evData!==null){
+      // Supabase is reachable — merge remote data (remote wins)
+      if(evData.length||DB.events.length){
+        // Build map from localStorage events
+        const localMap={};DB.events.forEach(e=>localMap[e.id]=e);
+        // Upsert any local events not yet in Supabase
+        const remoteIds=new Set(evData.map(e=>e.id));
+        const toSync=DB.events.filter(e=>!remoteIds.has(e.id));
+        if(toSync.length)await sbUpsert('bit_events',toSync.map(sbEventRow));
+        // Remote wins for existing IDs
+        DB.events=evData.map(sbRowToEvent);
+        // Add any local-only events
+        toSync.forEach(e=>{if(!DB.events.find(x=>x.id===e.id))DB.events.push(e);});
+      }
+      if(cmtData!==null) DB.comments=cmtData.map(sbRowToComment);
+      if(notifData!==null){
+        // Merge notifications into shared store
+        const local=cxNotifLoad();
+        const remoteNotifIds=new Set(notifData.map(n=>n.id));
+        const merged=[...notifData.map(sbRowToNotif),...local.filter(n=>!remoteNotifIds.has(n.id))];
+        cxNotifSave(merged);
+      }
+      setSBStatus(true);
+      saveDB();
+    }
+  }catch(e){setSBStatus(false);}
 }
+
+// ─── ROW MAPPERS ─────────────────────
+function sbEventRow(e){
+  return{
+    id:e.id, date:e.date, type:e.type,
+    tickers:JSON.stringify(e.tickers||[]),
+    company:e.company||'', desc:e.desc||'', note:e.note||'',
+    complete:e.complete||'no',
+    cal_color:e.calColor||'',
+    auto_complete:e.autoComplete||false,
+    created_by:e.createdBy||'',
+    updated_at:e.updatedAt||new Date().toISOString(),
+    images_json:JSON.stringify((e.images||[]).map(img=>({
+      n:img.n||'',mime:img.mime||'',
+      driveId:img.driveId||'',viewLink:img.viewLink||'',dlLink:img.dlLink||'',
+      d:img.d?.startsWith('data:')?'[local]':img.d||'' // don't store base64 in Supabase
+    })))
+  };
+}
+function sbRowToEvent(r){
+  return{
+    id:r.id, date:r.date, type:r.type,
+    tickers:safeJsonParse(r.tickers,[]),
+    company:r.company||'', desc:r.desc||'', note:r.note||'',
+    complete:r.complete||'no',
+    calColor:r.cal_color||'',
+    autoComplete:r.auto_complete||false,
+    createdBy:r.created_by||'',
+    updatedAt:r.updated_at||'',
+    images:safeJsonParse(r.images_json,[]).filter(i=>i.driveId||i.viewLink) // only Drive-linked images
+  };
+}
+function sbCommentRow(c){
+  return{
+    id:c.id, ev_id:c.evId, user_id:c.userId,
+    user_name:c.userName||'', text:c.text||'',
+    ts:c.ts||new Date().toISOString(),
+    mentions:JSON.stringify(c.mentions||[])
+  };
+}
+function sbRowToComment(r){
+  return{id:r.id,evId:r.ev_id,userId:r.user_id,userName:r.user_name||'',text:r.text||'',ts:r.ts||'',mentions:safeJsonParse(r.mentions,[])};
+}
+function sbNotifRow(n){
+  return{id:n.id,to_user:n.toUser,from_user:n.fromUser||'',ev_id:n.evId||'',ev_label:n.evLabel||n.appLabel||'',preview:n.preview||'',ts:n.ts||new Date().toISOString(),read:n.read||false};
+}
+function sbRowToNotif(r){
+  return{id:r.id,toUser:r.to_user,fromUser:r.from_user||'',evId:r.ev_id||'',appLabel:r.ev_label||'',preview:r.preview||'',ts:r.ts||'',read:r.read||false};
+}
+function safeJsonParse(s,fallback){try{return JSON.parse(s);}catch(e){return fallback;}}
 
 // ─── AUTH ─────────────────────────────────
 function doLogin(){
@@ -1281,8 +1427,14 @@ function initApp(){
   document.getElementById('hdr-role').textContent=ia?'Admin':'Lector';
   document.getElementById('hdr-role').className='role-chip '+(ia?'role-admin':'role-reader');
   document.querySelectorAll('.admin-only').forEach(el=>el.style.display=ia?'':'none');
-  // Check drive reconnect
-  if(localStorage.getItem('cc_drive_connected')==='1') setDriveUI(true);
+  // Drive: attempt silent reconnect if previously authorized
+  if(localStorage.getItem('cc_drive_connected')==='1'){
+    setDriveUI(true); // show UI immediately optimistically
+    // Try silent token refresh (no popup) — runs after GSI library loads
+    setTimeout(()=>{
+      try{driveConnect(true);}catch(e){}
+    }, 1200);
+  }
   if(!DB.comments)DB.comments=[];
   populateSels(); populateUpcomingFilters(); deduplicateExistingEvents(); autoCompleteCheck(); renderEvents(); renderCal(); renderUpcoming(); renderUsers(); renderIns(); renderTypes(); renderLog();
   renderNotifBadge();
@@ -1791,7 +1943,9 @@ function saveEvent(){
 function delEv(id){
   if(!confirm('¿Eliminar este evento?'))return;
   DB.events=DB.events.filter(e=>e.id!==id);
-  audit('DELETE','event',id);saveDB();populateSels();renderEvents();renderCal();renderUpcoming();toast('Evento eliminado');
+  audit('DELETE','event',id);saveDB();
+  sbSync('delete','bit_events',id);
+  populateSels();renderEvents();renderCal();renderUpcoming();toast('Evento eliminado');
 }
 
 // ════════════════════════════════════════
@@ -1864,16 +2018,38 @@ function openEvPanel(id){
         const mime=typeof att==='object'?(att.mime||''):'';
         const isPdf=mime==='application/pdf'||nm.toLowerCase().endsWith('.pdf');
         const hasDrive=typeof att==='object'&&att.viewLink;
-        if(isPdf||!src?.startsWith('data:image')){
-          return`<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surf-1);border:1px solid var(--b0);border-radius:8px;margin-bottom:8px">
-            <div style="font-size:22px">📄</div>
-            <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t0)">${nm}</div></div>
-            ${hasDrive?`<a href="${att.viewLink}" target="_blank" style="padding:5px 12px;background:var(--blue);color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Ver en Drive →</a>`:
-            src?`<button onclick="const b=dataUrlToBlob('${src}','application/pdf');window.open(URL.createObjectURL(b),'_blank')" style="padding:5px 12px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--ff)">Ver PDF</button>`:''}
+        const hasBase64=src&&src.startsWith('data:');
+        const isImage=src&&src.startsWith('data:image');
+
+        if(!isPdf&&isImage&&hasDrive){
+          // Image already in Drive — show thumbnail + Drive link
+          return`<div style="margin-bottom:8px">
+            <img src="${src}" onclick="openLB('${src}')" style="width:100%;border-radius:8px;cursor:zoom-in;display:block;border:1px solid var(--b0);max-height:300px;object-fit:contain;margin-bottom:4px">
+            <a href="${att.viewLink}" target="_blank" style="font-size:11px;color:var(--blue);text-decoration:none">↗ Ver en Drive</a>
           </div>`;
-        }else{
-          return`<img src="${src}" onclick="openLB('${src}')" style="width:100%;border-radius:8px;cursor:zoom-in;display:block;border:1px solid var(--b0);margin-bottom:8px;max-height:300px;object-fit:contain">`;
         }
+        if(!isPdf&&isImage&&!hasDrive){
+          // Image only in localStorage — show thumbnail + upload button
+          return`<div style="margin-bottom:8px">
+            <img src="${src}" onclick="openLB('${src}')" style="width:100%;border-radius:8px;cursor:zoom-in;display:block;border:1px solid var(--b0);max-height:300px;object-fit:contain;margin-bottom:6px">
+            ${driveToken?`<button onclick="uploadAttToDrive('${e.id}',${ai})" style="font-size:11px;padding:4px 10px;background:var(--surf-1);border:1px solid var(--b1);border-radius:5px;cursor:pointer;font-family:var(--ff);color:var(--t2)">↑ Subir a Drive</button>`:`<span style="font-size:11px;color:var(--amber)">⚠ Conectá Drive para subir</span>`}
+          </div>`;
+        }
+
+        // PDF or non-image file
+        return`<div style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--surf-1);border:1px solid var(--b0);border-radius:8px;margin-bottom:8px">
+          <div style="font-size:22px">${isPdf?'📄':'📎'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t0)">${nm}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:1px">${hasDrive?'Google Drive':hasBase64?'Guardado localmente':'Sin archivo'}</div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            ${hasDrive?`<a href="${att.viewLink}" target="_blank" style="padding:5px 12px;background:var(--blue);color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none;white-space:nowrap">Ver en Drive →</a>`:''}
+            ${hasBase64&&!hasDrive?`<button onclick="openLocalPdf('${e.id}',${ai})" style="padding:5px 12px;background:var(--surf-0);color:var(--t1);border:1px solid var(--b1);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--ff)">Ver PDF</button>`:''}
+            ${hasBase64&&!hasDrive&&driveToken?`<button onclick="uploadAttToDrive('${e.id}',${ai})" style="padding:5px 12px;background:transparent;color:var(--blue);border:1px solid var(--blue);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--ff)">↑ Subir a Drive</button>`:''}
+            ${!hasBase64&&!hasDrive?`<span style="font-size:11px;color:var(--t3)">Sin vista previa</span>`:''}
+          </div>
+        </div>`;
       }).join('');
     }else{aw.style.display='none';}
   }
@@ -2028,12 +2204,18 @@ function submitEvPanelComment(){
   const cmt={id:'cmt_'+Date.now(),evId:_evPanelId,userId:CU.email,userName:CU.name||CU.email,text,ts:new Date().toISOString(),mentions};
   if(!DB.comments)DB.comments=[];
   DB.comments.push(cmt);
+  // Persist comment to Supabase
+  sbSync('upsert','bit_comments',sbCommentRow(cmt));
   // Notifications
   const ev=DB.events.find(x=>x.id===_evPanelId);
   const notifyUsers=new Set();
   mentions.forEach(m=>{const u=DB.users.find(x=>x.email.toLowerCase().includes(m)||x.name?.toLowerCase().includes(m));if(u&&u.email!==CU.email)notifyUsers.add(u.email);});
   if(ev?.createdBy&&ev.createdBy!==CU.email)notifyUsers.add(ev.createdBy);
-  notifyUsers.forEach(toUser=>pushNotification({toUser,fromUser:CU.name||CU.email,evId:_evPanelId,evLabel:ev?`${ev.type}${ev.company?' · '+ev.company:''}`:_evPanelId,preview:text.substring(0,80),ts:new Date().toISOString()}));
+  notifyUsers.forEach(toUser=>{
+    const n={id:'n_'+Date.now()+Math.random(),toUser,fromUser:CU.name||CU.email,evId:_evPanelId,appLabel:'Bitácora · '+(ev?`${ev.type}${ev.company?' · '+ev.company:''}`:_evPanelId),preview:text.substring(0,80),ts:new Date().toISOString(),read:false};
+    pushNotification(n);
+    sbSync('upsert','bit_notifications',sbNotifRow(n));
+  });
   saveDB();evpCancelComment();renderEvPanelComments();
 }
 
@@ -2085,6 +2267,42 @@ function renderCalSearch(){
 
 function openLB(src){document.getElementById('lb-img').src=src;document.getElementById('lb').style.display='flex';}
 function dataUrlToBlob(dataUrl,mime){const p=dataUrl.split(',');const b=atob(p[1]);const ab=new ArrayBuffer(b.length);const ia=new Uint8Array(ab);for(let i=0;i<b.length;i++)ia[i]=b.charCodeAt(i);return new Blob([ab],{type:mime||'application/octet-stream'});}
+
+function openLocalPdf(evId,attIdx){
+  const ev=DB.events.find(x=>x.id===evId);if(!ev)return;
+  const att=ev.images?.[attIdx];if(!att)return;
+  const src=typeof att==='object'?att.d:att;
+  if(!src||!src.startsWith('data:')){toast('Archivo no disponible localmente','error');return;}
+  try{
+    const blob=dataUrlToBlob(src,'application/pdf');
+    const url=URL.createObjectURL(blob);
+    window.open(url,'_blank');
+    setTimeout(()=>URL.revokeObjectURL(url),10000);
+  }catch(e){toast('No se pudo abrir el PDF','error');}
+}
+
+async function uploadAttToDrive(evId,attIdx){
+  if(!driveToken){toast('Conectá Drive primero','error');return;}
+  const ev=DB.events.find(x=>x.id===evId);if(!ev)return;
+  const att=ev.images?.[attIdx];if(!att)return;
+  const src=typeof att==='object'?att.d:att;
+  if(!src?.startsWith('data:')){toast('Este archivo ya está en Drive o no tiene datos locales','');return;}
+  toast('Subiendo a Drive...');
+  const result=await uploadFileToDrive(att);
+  if(!result){toast('Error al subir — intentá de nuevo','error');return;}
+  // Update the attachment in the event
+  ev.images[attIdx]={
+    driveId:result.id, n:result.name||att.n||'adjunto',
+    mime:att.mime||'',
+    viewLink:result.viewLink, dlLink:result.dlLink,
+    d:att.mime?.startsWith('image/')?src:null  // keep image preview, drop PDF base64
+  };
+  ev.updatedAt=new Date().toISOString();
+  saveDB();
+  // Refresh the panel
+  openEvPanel(evId);
+  toast('✅ Subido a Drive correctamente','success');
+}
 
 // ─── CALENDAR ─────────────────────────────
 const MES=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
@@ -3137,13 +3355,87 @@ let driveToken=null;
 let _sheetsId=localStorage.getItem('cc_sheets_id')||null; // ID of linked spreadsheet
 
 function toggleDriveAuth(){if(driveToken)driveDisconnect();else driveConnect();}
-function driveConnect(){
-  const client=google.accounts.oauth2.initTokenClient({client_id:DRIVE_CLIENT_ID,scope:DRIVE_SCOPES,callback:(resp)=>{
-    if(resp.error){toast('Error Drive: '+resp.error,'error');return;}
-    driveToken=resp.access_token;setDriveUI(true);toast('✅ Google Drive conectado','success');localStorage.setItem('cc_drive_connected','1');
-  }});client.requestAccessToken();
+
+function driveConnect(silent=false){
+  try{
+    const client=google.accounts.oauth2.initTokenClient({
+      client_id:DRIVE_CLIENT_ID,
+      scope:DRIVE_SCOPES,
+      prompt:silent?'none':'',  // silent = no popup if already authorized
+      callback:(resp)=>{
+        if(resp.error){
+          if(!silent)toast('Error Drive: '+resp.error,'error');
+          return;
+        }
+        driveToken=resp.access_token;
+        _driveTokenExpiry=Date.now()+(55*60*1000); // 55 min (tokens last 60, refresh at 55)
+        setDriveUI(true);
+        localStorage.setItem('cc_drive_connected','1');
+        if(!silent)toast('✅ Google Drive conectado','success');
+        // Schedule silent refresh 5 min before expiry
+        clearTimeout(window._driveRefreshTimer);
+        window._driveRefreshTimer=setTimeout(()=>driveConnect(true), 50*60*1000);
+        // Auto-migrate all base64 attachments to Drive
+        driveAutoMigrate();
+      }
+    });
+    client.requestAccessToken({prompt:silent?'none':undefined});
+  }catch(e){if(!silent)toast('Error iniciando Drive','error');}
 }
-function driveDisconnect(){if(driveToken)google.accounts.oauth2.revoke(driveToken);driveToken=null;setDriveUI(false);localStorage.removeItem('cc_drive_connected');toast('Drive desconectado');}
+
+function driveDisconnect(){
+  if(driveToken)google.accounts.oauth2.revoke(driveToken);
+  driveToken=null;setDriveUI(false);
+  localStorage.removeItem('cc_drive_connected');
+  toast('Drive desconectado');
+}
+
+// ── Auto-migrate: uploads all base64 attachments still in localStorage to Drive
+let _migratingDrive=false;
+async function driveAutoMigrate(){
+  if(_migratingDrive||!driveToken)return;
+  // Find all events with base64 images (d starts with 'data:')
+  const eventsWithBase64=DB.events.filter(e=>(e.images||[]).some(img=>typeof img==='object'&&img.d?.startsWith('data:')));
+  if(!eventsWithBase64.length)return;
+  _migratingDrive=true;
+  let migrated=0;
+  const total=eventsWithBase64.reduce((sum,e)=>sum+(e.images||[]).filter(img=>img.d?.startsWith('data:')).length,0);
+  // Show progress toast
+  toast(`Subiendo ${total} adjunto${total!==1?'s':''} a Drive...`);
+  for(const ev of eventsWithBase64){
+    let changed=false;
+    const newImages=[];
+    for(const img of (ev.images||[])){
+      if(typeof img==='object'&&img.d?.startsWith('data:')&&!img.driveId){
+        // Upload to Drive
+        const result=await uploadFileToDrive(img);
+        if(result){
+          newImages.push({
+            driveId:result.id,n:result.name||img.n||'adjunto',
+            mime:img.mime||'',
+            viewLink:result.viewLink,dlLink:result.dlLink,
+            d:img.mime?.startsWith('image/')?img.d:null  // keep image preview, drop PDF base64
+          });
+          migrated++;
+          changed=true;
+        }else{
+          newImages.push(img); // keep as-is if upload failed
+        }
+      }else{
+        newImages.push(img);
+      }
+    }
+    if(changed){
+      ev.images=newImages;
+      ev.updatedAt=new Date().toISOString();
+    }
+  }
+  _migratingDrive=false;
+  if(migrated>0){
+    saveDB();
+    toast(`✅ ${migrated} adjunto${migrated!==1?'s':''} migrado${migrated!==1?'s':''} a Drive`,'success');
+  }
+}
 function setDriveUI(connected){
   const btn=document.getElementById('drive-btn');
   const dot=document.getElementById('drive-dot');
@@ -3154,18 +3446,57 @@ function setDriveUI(connected){
   }else{
     btn.classList.remove('connected');dot.style.background='var(--t3)';txt.textContent='Drive';
   }
-  // Show/hide Sheets button
   const sb=document.getElementById('sheets-btn');
   if(sb)sb.style.display=connected?'':'none';
 }
+
+// Token expiry tracking — Google tokens last ~1 hour
+let _driveTokenExpiry=0;
+function driveTokenValid(){
+  return !!driveToken && Date.now() < _driveTokenExpiry;
+}
+
+// Verify token with a lightweight API call
+async function driveTokenCheck(){
+  if(!driveToken)return false;
+  try{
+    const r=await fetch('https://www.googleapis.com/drive/v3/about?fields=user',{headers:{Authorization:'Bearer '+driveToken}});
+    if(r.status===401){
+      // Token expired — clear and show disconnected
+      driveToken=null;
+      setDriveUI(false);
+      // Try silent refresh
+      driveConnect(true);
+      return false;
+    }
+    return r.ok;
+  }catch(e){return false;}
+}
+
 async function uploadFileToDrive(file){
-  if(!driveToken)return null;
+  // Validate token before uploading
+  if(!driveToken){return null;}
+  // If token might be expired, verify first
+  if(!driveTokenValid()){
+    const ok=await driveTokenCheck();
+    if(!ok){
+      toast('Token de Drive expirado — reconectando...','');
+      return null;
+    }
+  }
   try{
     const mime=file.mime||(file.n?.endsWith('.pdf')?'application/pdf':'image/jpeg');
     const res=await fetch(file.d);const blob=await res.blob();
     const meta=JSON.stringify({name:file.n,parents:[DRIVE_FOLDER_ID]});
     const form=new FormData();form.append('metadata',new Blob([meta],{type:'application/json'}));form.append('file',blob);
     const up=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink,webContentLink',{method:'POST',headers:{Authorization:'Bearer '+driveToken},body:form});
+    if(up.status===401){
+      // Token expired mid-session
+      driveToken=null;setDriveUI(false);
+      driveConnect(true);
+      toast('Sesión de Drive expirada — reconectando. Intentá nuevamente en unos segundos.','');
+      return null;
+    }
     if(!up.ok)throw new Error('Upload failed: '+up.status);
     const data=await up.json();
     await fetch(`https://www.googleapis.com/drive/v3/files/${data.id}/permissions`,{method:'POST',headers:{Authorization:'Bearer '+driveToken,'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'anyone'})});
@@ -3433,10 +3764,12 @@ let tt;
 function toast(msg,type){const el=document.getElementById('toast');el.textContent=msg;el.className='show '+(type||'');clearTimeout(tt);tt=setTimeout(()=>el.className='',3200);}
 
 // ─── INIT ─────────────────────────────────
-loadDB();
-applyTheme();
-if(checkSess())initApp();
-else document.getElementById('login-screen').style.display='flex';
+(async()=>{
+  await loadDB();
+  applyTheme();
+  if(checkSess())initApp();
+  else document.getElementById('login-screen').style.display='flex';
+})();
 </script>
 </body>
 </html>
