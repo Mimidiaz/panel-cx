@@ -98,7 +98,7 @@ a{color:inherit;text-decoration:none}
 
 /* ─── SIDEBAR — dark navy like CX Org ── */
 .sidebar{
-  width:180px;flex-shrink:0;
+  width:220px;flex-shrink:0;
   background:#0F172A;
   border-right:none;
   display:flex;flex-direction:column;
@@ -121,6 +121,11 @@ a{color:inherit;text-decoration:none}
 .sb-item.active svg{opacity:1}
 .sb-sep{height:1px;background:rgba(255,255,255,.08);margin:6px 4px}
 .sb-item-label{flex:1}
+.sb-gestion-header{
+  display:flex;align-items:center;justify-content:space-between;
+  width:100%;padding:8px 10px 5px;border:none;background:transparent;
+  cursor:pointer;font-family:var(--ff);
+}
 
 /* ─── CONTENT AREA ───────────────────── */
 .content{flex:1;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);min-width:0}
@@ -242,13 +247,19 @@ a{color:inherit;text-decoration:none}
 }
 
 /* Ticker pills */
-.cal-tickers{display:flex;flex-wrap:wrap;gap:2px;margin-top:3px}
+.cal-tickers{display:flex;flex-wrap:nowrap;gap:2px;margin-top:3px;overflow:hidden;align-items:center}
 .cal-tk{
-  font-size:9.5px;font-weight:600;
+  font-size:9px;font-weight:600;
   padding:1px 5px;border-radius:3px;
   font-family:var(--fm);
   line-height:1.45;white-space:nowrap;
   background:var(--cal-tk-bg);
+  flex-shrink:0;
+}
+.cal-tk-more{
+  font-size:9px;font-weight:600;
+  white-space:nowrap;padding-left:2px;flex-shrink:0;
+  opacity:.6;
 }
 
 /* ── Light-mode calendar tokens ── */
@@ -521,20 +532,24 @@ body.dark .sheets-action-card{background:var(--surf-1)}
         🔔
         <span id="notif-badge" style="display:none;position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:var(--red);border:2px solid #fff"></span>
       </button>
-      <button class="drive-btn" id="drive-btn" onclick="toggleDriveAuth()">
-        <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0" id="drive-dot" class="drive-dot"></span>
-        <span id="drive-btn-text">Drive</span>
-      </button>
-      <button class="drive-btn" id="sheets-btn" onclick="openSheetsModal()" title="Sincronizar con Google Sheets" style="display:none">
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="#34A853"><path d="M11 17H7v-4h4v4zm2 0v-4h4v4h-4zm-2-6H7V7h4v4zm2 0V7h4v4h-4zM5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
-        <span id="sheets-btn-text">Sheets</span>
-        <span id="sheets-sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--green);display:none"></span>
-      </button>
-      <button class="btn-out" onclick="doLogout()">Salir</button>
-      <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--b0);border-radius:var(--r-sm);font-size:11px;color:var(--t3)">
-        <span id="sb-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s"></span>
-        <span id="sb-status-lbl">Local</span>
+      <!-- Admin-only tools — hidden for regular users -->
+      <div id="sb-status-wrap" style="display:none;align-items:center;gap:8px;flex-shrink:0">
+        <button id="view-as-user-btn" onclick="toggleViewAsUser()" style="font-size:11px;padding:5px 10px;background:transparent;border:1px solid var(--b0);border-radius:var(--r-sm);cursor:pointer;font-family:var(--ff);color:var(--t2);white-space:nowrap">👁 Vista usuario</button>
+        <button class="drive-btn" id="drive-btn" onclick="toggleDriveAuth()">
+          <span style="width:6px;height:6px;border-radius:50%;flex-shrink:0" id="drive-dot" class="drive-dot"></span>
+          <span id="drive-btn-text">Drive</span>
+        </button>
+        <button class="drive-btn" id="sheets-btn" onclick="openSheetsModal()" title="Sincronizar con Google Sheets" style="display:none">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="#34A853"><path d="M11 17H7v-4h4v4zm2 0v-4h4v4h-4zm-2-6H7V7h4v4zm2 0V7h4v4h-4zM5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/></svg>
+          <span id="sheets-btn-text">Sheets</span>
+          <span id="sheets-sync-dot" style="width:6px;height:6px;border-radius:50%;background:var(--green);display:none"></span>
+        </button>
+        <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--b0);border-radius:var(--r-sm);font-size:11px;color:var(--t3)">
+          <span id="sb-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s"></span>
+          <span id="sb-status-lbl">Local</span>
+        </div>
       </div>
+      <button class="btn-out" onclick="doLogout()">Salir</button>
     </div>
   </header>
 
@@ -543,7 +558,7 @@ body.dark .sheets-action-card{background:var(--surf-1)}
 
     <!-- SIDEBAR -->
     <nav class="sidebar">
-      <!-- Main views -->
+      <!-- Principal — visible to all -->
       <div class="sb-section">Principal</div>
       <button class="sb-item active" id="sb-calendar" onclick="switchView('calendar',this)">
         <svg viewBox="0 0 16 16" fill="currentColor"><path d="M3.5 0a.5.5 0 01.5.5V1h8V.5a.5.5 0 011 0V1h1a2 2 0 012 2v11a2 2 0 01-2 2H2a2 2 0 01-2-2V3a2 2 0 012-2h1V.5a.5.5 0 01.5-.5zM1 4v10a1 1 0 001 1h12a1 1 0 001-1V4H1z"/></svg>
@@ -554,26 +569,35 @@ body.dark .sheets-action-card{background:var(--surf-1)}
         <span class="sb-item-label">Eventos</span>
       </button>
 
-      <div class="sb-sep"></div>
+      <!-- Gestión — admin only, collapsible -->
+      <div class="sb-sep admin-only" id="sb-gestion-sep" style="display:none"></div>
+      <button class="sb-gestion-header admin-only" id="sb-gestion-toggle" onclick="toggleGestion()" style="display:none">
+        <span style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35)">Gestión</span>
+        <svg id="sb-gestion-arrow" width="10" height="10" viewBox="0 0 16 16" fill="currentColor" style="color:rgba(255,255,255,.3);transition:transform .2s;flex-shrink:0"><path d="M7.247 11.14L2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 01.753 1.659l-4.796 5.48a1 1 0 01-1.506 0z"/></svg>
+      </button>
+      <div id="sb-gestion-items" class="admin-only" style="display:none">
+        <button class="sb-item" id="sb-upload" onclick="switchView('carga',this)">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/><path d="M7.646 1.146a.5.5 0 01.708 0l3 3a.5.5 0 01-.708.708L8.5 2.707V11.5a.5.5 0 01-1 0V2.707L5.354 4.854a.5.5 0 11-.708-.708l3-3z"/></svg>
+          <span class="sb-item-label">Carga</span>
+        </button>
+        <button class="sb-item" id="sb-instruments" onclick="switchView('instruments',this)">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1H2zm0-1h12a2 2 0 012 2v10a2 2 0 01-2 2H2a2 2 0 01-2-2V3a2 2 0 012-2z"/><path d="M4 5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7A.5.5 0 014 5zm0 2.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm0 2.5a.5.5 0 01.5-.5h4a.5.5 0 010 1h-4A.5.5 0 014 10z"/></svg>
+          <span class="sb-item-label">Instrumentos</span>
+        </button>
+        <button class="sb-item" id="sb-types" onclick="switchView('types',this)">
+          <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 4a1 1 0 000 2h12a1 1 0 100-2H2zm0 5a1 1 0 000 2h5a1 1 0 000-2H2zm0 5a1 1 0 000 2h7a1 1 0 100-2H2z"/></svg>
+          <span class="sb-item-label">Tipos</span>
+        </button>
+      </div>
 
-      <!-- Admin views -->
-      <div class="sb-section admin-only">Gestión</div>
-      <button class="sb-item admin-only" id="sb-upload" onclick="switchView('carga',this)">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/><path d="M7.646 1.146a.5.5 0 01.708 0l3 3a.5.5 0 01-.708.708L8.5 2.707V11.5a.5.5 0 01-1 0V2.707L5.354 4.854a.5.5 0 11-.708-.708l3-3z"/></svg>
-        <span class="sb-item-label">Carga</span>
-      </button>
-      <button class="sb-item admin-only" id="sb-instruments" onclick="switchView('instruments',this)">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2a1 1 0 00-1 1v10a1 1 0 001 1h12a1 1 0 001-1V3a1 1 0 00-1-1H2zm0-1h12a2 2 0 012 2v10a2 2 0 01-2 2H2a2 2 0 01-2-2V3a2 2 0 012-2z"/><path d="M4 5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7A.5.5 0 014 5zm0 2.5a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm0 2.5a.5.5 0 01.5-.5h4a.5.5 0 010 1h-4A.5.5 0 014 10z"/></svg>
-        <span class="sb-item-label">Instrumentos</span>
-      </button>
-      <button class="sb-item admin-only" id="sb-types" onclick="switchView('types',this)">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 2v13H6V4.455l-3.5 1.034V4.41l4-1.mix V2h.5zM5 14H4v-3H3v-1h2v4zm4-8h2V4.5A2.5 2.5 0 008.5 2h-1v1h1A1.5 1.5 0 0110 4.5V6zm0 0v8H8V6h1z"/></svg>
-        <span class="sb-item-label">Tipos</span>
-      </button>
-      <button class="sb-item admin-only" id="sb-admin" onclick="switchView('admin',this)">
-        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.289 10 8 10c-2.29 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/></svg>
-        <span class="sb-item-label">Admin</span>
-      </button>
+      <!-- Role toggle — admin can switch to user view, always shown for admin -->
+      <div style="margin-top:auto;padding-top:16px" id="sb-role-toggle-wrap" style="display:none">
+        <div class="sb-sep" style="margin-bottom:12px"></div>
+        <button id="sb-view-toggle-btn" onclick="toggleAdminView()" style="width:100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:var(--r-sm);background:transparent;border:1px solid rgba(255,255,255,.1);cursor:pointer;font-family:var(--ff);font-size:12px;font-weight:500;color:rgba(255,255,255,.4);transition:all .12s" onmouseenter="this.style.background='rgba(255,255,255,.06)'" onmouseleave="this.style.background='transparent'">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm2-3a2 2 0 11-4 0 2 2 0 014 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4z"/></svg>
+          <span id="sb-view-toggle-lbl">Ver como usuario</span>
+        </button>
+      </div>
     </nav>
 
     <!-- CONTENT -->
@@ -1196,16 +1220,76 @@ body.dark .sheets-action-card{background:var(--surf-1)}
 
 <!-- CUADERNILLO -->
 <div class="mo" id="modal-cuad">
-  <div class="modal" style="width:580px">
-    <div class="mtit"><span>Generar Cuadernillo</span><button class="mcls" onclick="closeModal('modal-cuad')">×</button></div>
-    <div class="cuad-opts">
-      <div class="cuad-opt sel" id="cuad-opt-all"   onclick="selCuad('all')"><div class="coi">📋</div><div class="col">Todos los eventos</div></div>
-      <div class="cuad-opt"    id="cuad-opt-range"  onclick="selCuad('range')"><div class="coi">📅</div><div class="col">Por rango de fechas</div></div>
-      <div class="cuad-opt"    id="cuad-opt-type"   onclick="selCuad('type')"><div class="coi">🏷️</div><div class="col">Por tipo</div></div>
-      <div class="cuad-opt"    id="cuad-opt-ticker" onclick="selCuad('ticker')"><div class="coi">📈</div><div class="col">Por ticker</div></div>
+  <div class="modal" style="width:660px;max-height:88vh;display:flex;flex-direction:column">
+    <div class="mtit" style="flex-shrink:0">
+      <span>Generar Cuadernillo</span>
+      <button class="mcls" onclick="closeModal('modal-cuad')">×</button>
     </div>
-    <div id="cuad-opt-form"></div>
-    <div class="mact"><button class="btn-sec" onclick="closeModal('modal-cuad')">Cancelar</button><button class="btn btn-primary" onclick="genCuad()">🖨 Generar PDF</button></div>
+
+    <!-- PASO 1: Filtros -->
+    <div id="cuad-step1" style="overflow-y:auto;flex:1">
+
+      <!-- Rango de fechas -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Rango de fechas</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="field"><label>Desde</label><input type="date" id="cuad-from" style="width:100%;padding:9px 12px;background:#fff;border:1px solid var(--b1);border-radius:var(--r-sm);color:var(--t0);font-family:var(--ff);font-size:13px;outline:none"></div>
+          <div class="field"><label>Hasta</label><input type="date" id="cuad-to"   style="width:100%;padding:9px 12px;background:#fff;border:1px solid var(--b1);border-radius:var(--r-sm);color:var(--t0);font-family:var(--ff);font-size:13px;outline:none"></div>
+        </div>
+        <div style="font-size:11px;color:var(--t3);margin-top:5px">Dejá vacío para incluir todos los períodos</div>
+      </div>
+
+      <!-- Tipos — checkboxes múltiples -->
+      <div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em">Tipos de evento</div>
+          <div style="display:flex;gap:10px">
+            <button onclick="cuadSelAllTypes(true)" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-family:var(--ff)">Todos</button>
+            <button onclick="cuadSelAllTypes(false)" style="font-size:11px;color:var(--t3);background:none;border:none;cursor:pointer;font-family:var(--ff)">Ninguno</button>
+          </div>
+        </div>
+        <div id="cuad-types-checks" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
+      <!-- Ticker filter (optional) -->
+      <div style="margin-bottom:18px">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Filtrar por ticker (opcional)</div>
+        <input type="text" id="cuad-ticker-filter" placeholder="Ej: GGAL — dejá vacío para todos" style="width:100%;padding:9px 12px;background:#fff;border:1px solid var(--b1);border-radius:var(--r-sm);color:var(--t0);font-family:var(--fm);font-size:13px;outline:none;text-transform:uppercase">
+      </div>
+
+      <!-- Options -->
+      <div style="margin-bottom:8px">
+        <div style="font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">Opciones</div>
+        <label style="display:flex;align-items:center;gap:9px;margin-bottom:8px;cursor:pointer;font-size:13px;color:var(--t1)">
+          <input type="checkbox" id="cuad-opt-notes" checked style="accent-color:var(--blue);width:14px;height:14px">
+          Incluir notas internas
+        </label>
+        <label style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:13px;color:var(--t1)">
+          <input type="checkbox" id="cuad-opt-completed" checked style="accent-color:var(--blue);width:14px;height:14px">
+          Incluir eventos completados
+        </label>
+      </div>
+
+    </div>
+
+    <!-- PASO 2: Preview editable (hidden initially) -->
+    <div id="cuad-step2" style="display:none;flex:1;overflow-y:auto;flex-direction:column">
+      <div style="font-size:13px;color:var(--t2);margin-bottom:14px;flex-shrink:0">Editá el contenido antes de generar. Los cambios son solo para este PDF.</div>
+      <div id="cuad-preview-list" style="display:flex;flex-direction:column;gap:12px"></div>
+    </div>
+
+    <div class="mf" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding-top:16px;border-top:1px solid var(--b0);margin-top:12px">
+      <div id="cuad-step-indicator" style="font-size:12px;color:var(--t3)">Paso 1 de 2 — Filtros</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-sec" id="cuad-btn-back" onclick="cuadBack()" style="display:none">← Atrás</button>
+        <button class="btn-sec" onclick="closeModal('modal-cuad')">Cancelar</button>
+        <button class="btn btn-primary" id="cuad-btn-next" onclick="cuadNext()">Siguiente →</button>
+        <button class="btn btn-primary" id="cuad-btn-gen" onclick="genCuad()" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1a2 2 0 012 2v4H6V3a2 2 0 012-2zm3 6V3a3 3 0 00-6 0v4a2 2 0 00-2 2v5a2 2 0 002 2h6a2 2 0 002-2V9a2 2 0 00-2-2h-1z"/></svg>
+          Generar PDF
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -1419,26 +1503,78 @@ function initApp(){
   applyTheme();
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app').classList.add('on');
-  // Avatar initials
   const av=(CU.name||CU.email).split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
   document.getElementById('u-av').textContent=av;
   document.getElementById('u-name').textContent=CU.name||CU.email;
   const ia=CU.role==='admin';
   document.getElementById('hdr-role').textContent=ia?'Admin':'Lector';
   document.getElementById('hdr-role').className='role-chip '+(ia?'role-admin':'role-reader');
-  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=ia?'':'none');
-  // Drive: attempt silent reconnect if previously authorized
-  if(localStorage.getItem('cc_drive_connected')==='1'){
-    setDriveUI(true); // show UI immediately optimistically
-    // Try silent token refresh (no popup) — runs after GSI library loads
-    setTimeout(()=>{
-      try{driveConnect(true);}catch(e){}
-    }, 1200);
+  applyRoleUI(ia);
+  // Drive: attempt silent reconnect if previously authorized (admin only)
+  if(ia&&localStorage.getItem('cc_drive_connected')==='1'){
+    setDriveUI(true);
+    setTimeout(()=>{try{driveConnect(true);}catch(e){}},1200);
   }
   if(!DB.comments)DB.comments=[];
-  populateSels(); populateUpcomingFilters(); deduplicateExistingEvents(); autoCompleteCheck(); renderEvents(); renderCal(); renderUpcoming(); renderUsers(); renderIns(); renderTypes(); renderLog();
+  populateSels();populateUpcomingFilters();deduplicateExistingEvents();autoCompleteCheck();renderEvents();renderCal();renderUpcoming();renderUsers();renderIns();renderTypes();renderLog();
   renderNotifBadge();
 }
+
+// ── Role UI: show/hide elements by role ──────
+let _viewingAsUser=false;
+let _gestionOpen=true; // Gestión section expanded by default
+
+function applyRoleUI(isAdmin){
+  const effectiveAdmin=isAdmin&&!_viewingAsUser;
+
+  // admin-only elements (content views, buttons)
+  document.querySelectorAll('.admin-only').forEach(el=>el.style.display=effectiveAdmin?'':'none');
+
+  // Header admin toolbar
+  const wrap=document.getElementById('sb-status-wrap');
+  if(wrap)wrap.style.display=effectiveAdmin?'flex':'none';
+
+  // Gestión collapsible section
+  const gSep=document.getElementById('sb-gestion-sep');
+  const gToggle=document.getElementById('sb-gestion-toggle');
+  const gItems=document.getElementById('sb-gestion-items');
+  if(gSep)gSep.style.display=effectiveAdmin?'block':'none';
+  if(gToggle)gToggle.style.display=effectiveAdmin?'flex':'none';
+  if(gItems)gItems.style.display=effectiveAdmin&&_gestionOpen?'block':'none';
+
+  // Role toggle button — always visible for admin, regardless of mode
+  const roleWrap=document.getElementById('sb-role-toggle-wrap');
+  if(roleWrap)roleWrap.style.display=isAdmin?'block':'none';
+  const lbl=document.getElementById('sb-view-toggle-lbl');
+  if(lbl)lbl.textContent=_viewingAsUser?'← Volver a Admin':'👁 Ver como usuario';
+  // Highlight button when active
+  const toggleBtn=document.getElementById('sb-view-toggle-btn');
+  if(toggleBtn){
+    toggleBtn.style.borderColor=_viewingAsUser?'var(--blue)':'rgba(255,255,255,.1)';
+    toggleBtn.style.color=_viewingAsUser?'var(--blue)':'rgba(255,255,255,.4)';
+    toggleBtn.style.background=_viewingAsUser?'rgba(30,111,222,.12)':'transparent';
+  }
+}
+
+function toggleGestion(){
+  _gestionOpen=!_gestionOpen;
+  const items=document.getElementById('sb-gestion-items');
+  const arrow=document.getElementById('sb-gestion-arrow');
+  if(items)items.style.display=_gestionOpen?'block':'none';
+  if(arrow)arrow.style.transform=_gestionOpen?'':'rotate(-90deg)';
+}
+
+function toggleAdminView(){
+  _viewingAsUser=!_viewingAsUser;
+  applyRoleUI(CU?.role==='admin');
+  // If switching to user view, navigate to calendar
+  if(_viewingAsUser){
+    switchView('calendar',document.getElementById('sb-calendar'));
+  }
+}
+
+// Single alias — no duplicate
+function toggleViewAsUser(){toggleAdminView();}
 
 // ─── NAVIGATION ───────────────────────────
 function switchView(name, btn){
@@ -1853,15 +1989,16 @@ function deduplicateExistingEvents(){
 //   - Fusiona company/desc si están vacíos en el existente
 //   - Retorna 'merged' | 'duplicate' | 'new'
 function mergeEventIntoGroup(ev){
+  // Helper: companies match if both empty OR both have the same value
+  const sameCompany=(a,b)=>(!a&&!b)||(a&&b&&a.trim().toLowerCase()===b.trim().toLowerCase());
+
   if(!ev.tickers||!ev.tickers.length){
-    // Sin tickers — verificar solo fecha+tipo
-    const existing=DB.events.find(x=>x.date===ev.date&&x.type===ev.type&&x.id!==ev.id);
+    // Sin tickers — match by date+type+company
+    const existing=DB.events.find(x=>x.date===ev.date&&x.type===ev.type&&sameCompany(x.company,ev.company)&&x.id!==ev.id);
     if(existing){
-      // Fusionar company/desc/note si el existente está vacío
       if(!existing.company&&ev.company)existing.company=ev.company;
       if(!existing.desc&&ev.desc)existing.desc=ev.desc;
       if(!existing.note&&ev.note)existing.note=ev.note;
-      // Merge images
       existing.images=[...(existing.images||[]),...(ev.images||[])];
       existing.updatedAt=new Date().toISOString();
       audit('MERGE','event',existing.id);
@@ -1881,18 +2018,16 @@ function mergeEventIntoGroup(ev){
   }
 
   if(dupTickers.length&&!newTickers.length){
-    // Todos duplicados
-    toast(`Ya existe${dupTickers.length>1?'n':''}${dupTickers.length>1?' los tickers':' el ticker'} ${dupTickers.join(', ')} en esta fecha`,'error');
+    toast(`Ya exist${dupTickers.length>1?'en los tickers':'e el ticker'} ${dupTickers.join(', ')} en esta fecha`,'error');
     return'duplicate';
   }
   if(dupTickers.length){
     toast(`Se omitier${dupTickers.length>1?'on':'ó'} ${dupTickers.join(', ')} (ya exist${dupTickers.length>1?'en':'e'} en esta fecha)`,'');
   }
-  // Work only with non-duplicate tickers
   ev.tickers=newTickers;
 
-  // Look for existing event with same date+type to merge into
-  const target=DB.events.find(x=>x.date===ev.date&&x.type===ev.type&&x.id!==ev.id);
+  // Merge only if same date + type + company
+  const target=DB.events.find(x=>x.date===ev.date&&x.type===ev.type&&sameCompany(x.company,ev.company)&&x.id!==ev.id);
   if(target){
     target.tickers=[...new Set([...(target.tickers||[]),...ev.tickers])].sort();
     if(!target.company&&ev.company)target.company=ev.company;
@@ -2435,9 +2570,13 @@ function renderCal(){
       const title=e.type||'—';
       const tickers=e.tickers||[];
 
-      // Show all tickers as pills
+      // Show max 3 tickers + "+N más"
+      const MAX_TK=3;
       const tkHtml=tickers.length
-        ?`<div class="cal-tickers">${tickers.map(tk=>`<span class="cal-tk" style="background:${st.tkBg};color:${st.text}">${tk}</span>`).join('')}</div>`
+        ?`<div class="cal-tickers">${
+            tickers.slice(0,MAX_TK).map(tk=>`<span class="cal-tk" style="background:${st.tkBg};color:${st.text}">${tk}</span>`).join('')
+          }${tickers.length>MAX_TK?`<span class="cal-tk-more" style="color:${st.text}">+${tickers.length-MAX_TK}</span>`:''
+          }</div>`
         :'';
 
       return`<div class="cal-event"
@@ -3064,7 +3203,8 @@ function openTypeModal(id){
 }
 function updTypPrev(){const p=document.getElementById('typ-prev');p.textContent=document.getElementById('typ-name').value||'TIPO';p.style.background=document.getElementById('typ-bg').value;p.style.color=document.getElementById('typ-color').value;}
 function saveType(){
-  const name=document.getElementById('typ-name').value.trim().toUpperCase();if(!name){toast('Nombre requerido','error');return;}
+  const name=document.getElementById('typ-name').value.trim().toUpperCase();
+  if(!name){toast('Nombre requerido','error');return;}
   const id=document.getElementById('typ-id').value;
   const t={
     id:id||'t_'+Date.now(),name,
@@ -3073,8 +3213,30 @@ function saveType(){
     calColor:document.getElementById('typ-cal-color').value,
     autoComplete:document.getElementById('typ-autocomplete').checked
   };
-  if(id)DB.eventTypes[DB.eventTypes.findIndex(x=>x.id===id)]=t;else DB.eventTypes.push(t);
-  saveDB();renderTypes();populateSels();closeModal('modal-type');toast('Tipo guardado','success');
+  if(id){
+    const oldType=DB.eventTypes.find(x=>x.id===id);
+    const oldName=oldType?.name||'';
+    let renamed=0, recolored=0;
+    DB.events.forEach(e=>{
+      // Rename type reference
+      if(oldName&&e.type===oldName&&name!==oldName){e.type=name;renamed++;}
+      // Apply new calColor to events that used the type's color (not custom-overridden)
+      const typeRef=name||oldName;
+      if(e.type===typeRef&&!e._customColor&&t.calColor){
+        e.calColor=t.calColor;recolored++;
+      }
+      // Apply autoComplete
+      if(e.type===typeRef&&t.autoComplete!==undefined){
+        e.autoComplete=t.autoComplete;
+      }
+    });
+    if(renamed>0)toast(`Renombrado en ${renamed} evento${renamed!==1?'s':''}  ✓`,'success');
+    DB.eventTypes[DB.eventTypes.findIndex(x=>x.id===id)]=t;
+  }else{
+    DB.eventTypes.push(t);
+  }
+  saveDB();renderTypes();populateSels();renderEvents();renderCal();closeModal('modal-type');
+  if(!id)toast('Tipo creado','success');
 }
 function delType(id){if(!confirm('¿Eliminar tipo?'))return;DB.eventTypes=DB.eventTypes.filter(t=>t.id!==id);saveDB();renderTypes();populateSels();toast('Tipo eliminado');}
 
@@ -3110,28 +3272,132 @@ function renderLog(){
 
 // ─── CUADERNILLO ──────────────────────────
 let _cuadMode='all';
-function selCuad(m){
-  _cuadMode=m;
-  document.querySelectorAll('.cuad-opt').forEach(o=>o.classList.remove('sel'));
-  document.getElementById('cuad-opt-'+m)?.classList.add('sel');
-  const f=document.getElementById('cuad-opt-form');
-  if(m==='range') f.innerHTML=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px"><div class="field"><label>Desde</label><input type="date" id="cuad-from" class="modal .field input" style="width:100%;padding:10px 12px;background:var(--surf-1);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t0);font-family:var(--ff);font-size:13px;outline:none"></div><div class="field"><label>Hasta</label><input type="date" id="cuad-to" style="width:100%;padding:10px 12px;background:var(--surf-1);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t0);font-family:var(--ff);font-size:13px;outline:none"></div></div>`;
-  else if(m==='type') f.innerHTML=`<div class="field"><label>Tipo</label><select id="cuad-type" style="width:100%;padding:10px 12px;background:var(--surf-1);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t0);font-family:var(--ff);font-size:13px;outline:none"></select></div>`;
-  else if(m==='ticker') f.innerHTML=`<div class="field"><label>Ticker</label><input type="text" id="cuad-ticker" placeholder="Ej: GGAL" style="width:100%;padding:10px 12px;background:var(--surf-1);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t0);font-family:var(--ff);font-size:13px;outline:none;text-transform:uppercase"></div>`;
-  else f.innerHTML='';
-  // re-populate type select
-  const sel=document.getElementById('cuad-type');
-  if(sel){DB.eventTypes.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name;sel.appendChild(o);});}
+// ─── CUADERNILLO 2-STEP ──────────────────
+let _cuadEvs=[]; // filtered events for step 2
+
+function openCuadernillo(){
+  // Reset to step 1
+  document.getElementById('cuad-step1').style.display='block';
+  document.getElementById('cuad-step2').style.display='none';
+  document.getElementById('cuad-btn-next').style.display='';
+  document.getElementById('cuad-btn-gen').style.display='none';
+  document.getElementById('cuad-btn-back').style.display='none';
+  document.getElementById('cuad-step-indicator').textContent='Paso 1 de 2 — Filtros';
+  // Reset filters
+  document.getElementById('cuad-from').value='';
+  document.getElementById('cuad-to').value='';
+  document.getElementById('cuad-ticker-filter').value='';
+  document.getElementById('cuad-opt-notes').checked=true;
+  document.getElementById('cuad-opt-completed').checked=true;
+  // Build type checkboxes
+  const tc=document.getElementById('cuad-types-checks');
+  tc.innerHTML=DB.eventTypes.map(t=>`
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;background:#fff;border:1px solid var(--b1);border-radius:99px;cursor:pointer;font-size:12px;font-weight:600;color:var(--t1);transition:all .1s"
+      onmouseover="this.style.borderColor='var(--blue)'" onmouseout="this.style.borderColor='var(--b1)'">
+      <input type="checkbox" value="${t.name}" class="cuad-type-chk" checked style="accent-color:var(--blue);width:12px;height:12px">
+      ${t.name}
+    </label>`).join('');
+  openModal('modal-cuad');
 }
-function openCuadernillo(){_cuadMode='all';document.querySelectorAll('.cuad-opt').forEach(o=>o.classList.remove('sel'));document.getElementById('cuad-opt-all')?.classList.add('sel');document.getElementById('cuad-opt-form').innerHTML='';openModal('modal-cuad');}
+
+function cuadSelAllTypes(checked){
+  document.querySelectorAll('.cuad-type-chk').forEach(c=>c.checked=checked);
+}
+
+function cuadNext(){
+  // Apply filters to get event list
+  const from=document.getElementById('cuad-from').value;
+  const to=document.getElementById('cuad-to').value;
+  const ticker=(document.getElementById('cuad-ticker-filter').value||'').toUpperCase().trim();
+  const selTypes=[...document.querySelectorAll('.cuad-type-chk:checked')].map(c=>c.value);
+  const inclNotes=document.getElementById('cuad-opt-notes').checked;
+  const inclCompleted=document.getElementById('cuad-opt-completed').checked;
+
+  let evs=DB.events.filter(e=>{
+    if(selTypes.length&&!selTypes.includes(e.type))return false;
+    if(from&&e.date<from)return false;
+    if(to&&e.date>to)return false;
+    if(ticker&&!(e.tickers||[]).includes(ticker))return false;
+    if(!inclCompleted&&e.complete==='yes')return false;
+    return true;
+  }).sort((a,b)=>new Date(a.date)-new Date(b.date));
+
+  if(!evs.length){toast('Sin eventos con esos filtros','error');return;}
+
+  // Build editable preview
+  _cuadEvs=evs.map(e=>({
+    id:e.id,
+    type:e.type,
+    date:e.date,
+    company:e.company||'',
+    tickers:[...(e.tickers||[])],
+    desc:e.desc||'',
+    note:inclNotes?(e.note||''):'',
+    complete:e.complete,
+    images:e.images||[]
+  }));
+
+  const list=document.getElementById('cuad-preview-list');
+  list.innerHTML=_cuadEvs.map((e,i)=>{
+    const st=calEventStyle(e.type,e);
+    return`<div style="background:#fff;border:1px solid var(--b0);border-radius:var(--r-md);overflow:hidden">
+      <!-- Header bar -->
+      <div style="background:#0F172A;padding:10px 16px;display:flex;align-items:center;gap:10px">
+        <span style="width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0">${i+1}</span>
+        <span style="padding:2px 9px;border:1px solid rgba(255,255,255,.3);border-radius:4px;font-size:10px;font-weight:700;text-transform:uppercase;color:#fff">${e.type}</span>
+        <span style="font-size:14px;font-weight:700;color:#fff;flex:1" contenteditable="true" data-field="company" data-idx="${i}"
+          oninput="_cuadEvs[${i}].company=this.textContent"
+          style="outline:none;border-bottom:1px solid rgba(255,255,255,.2);padding-bottom:1px">${e.company||'—'}</span>
+        <span style="font-size:11px;font-weight:600;color:#fff;background:var(--blue);padding:3px 10px;border-radius:5px;font-family:var(--fm)">${e.date}</span>
+      </div>
+      <!-- Editable fields -->
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:4px">Tickers</div>
+          <div contenteditable="true" data-field="tickers" data-idx="${i}"
+            oninput="_cuadEvs[${i}].tickers=this.textContent.split(/[,\\s]+/).map(s=>s.trim().toUpperCase()).filter(Boolean)"
+            style="font-family:var(--fm);font-size:12px;color:var(--t0);background:var(--surf-1);border:1px solid var(--b0);border-radius:6px;padding:7px 10px;outline:none;min-height:28px">${(e.tickers||[]).join(', ')||'—'}</div>
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--t3);margin-bottom:4px">Descripción</div>
+          <div contenteditable="true" data-field="desc" data-idx="${i}"
+            oninput="_cuadEvs[${i}].desc=this.textContent"
+            style="font-size:13px;color:var(--t1);background:var(--surf-1);border:1px solid var(--b0);border-radius:6px;padding:7px 10px;outline:none;min-height:36px;line-height:1.6">${e.desc||''}</div>
+        </div>
+        ${inclNotes?`<div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#92400E;margin-bottom:4px">🔒 Nota interna</div>
+          <div contenteditable="true" data-field="note" data-idx="${i}"
+            oninput="_cuadEvs[${i}].note=this.textContent"
+            style="font-size:12px;color:#78350F;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:7px 10px;outline:none;min-height:28px;font-style:italic">${e.note||''}</div>
+        </div>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  // Switch to step 2
+  document.getElementById('cuad-step1').style.display='none';
+  document.getElementById('cuad-step2').style.display='flex';
+  document.getElementById('cuad-btn-next').style.display='none';
+  document.getElementById('cuad-btn-gen').style.display='';
+  document.getElementById('cuad-btn-back').style.display='';
+  document.getElementById('cuad-step-indicator').textContent=`Paso 2 de 2 — ${_cuadEvs.length} evento${_cuadEvs.length!==1?'s':''}`;
+}
+
+function cuadBack(){
+  document.getElementById('cuad-step1').style.display='block';
+  document.getElementById('cuad-step2').style.display='none';
+  document.getElementById('cuad-btn-next').style.display='';
+  document.getElementById('cuad-btn-gen').style.display='none';
+  document.getElementById('cuad-btn-back').style.display='none';
+  document.getElementById('cuad-step-indicator').textContent='Paso 1 de 2 — Filtros';
+}
+
+// Legacy compat — openCuadernillo already replaces this
+function selCuad(m){_cuadMode=m;}
 
 function genCuad(){
-  let evs=DB.events;
-  if(_cuadMode==='range'){const f=document.getElementById('cuad-from')?.value,t=document.getElementById('cuad-to')?.value;if(f)evs=evs.filter(e=>e.date>=f);if(t)evs=evs.filter(e=>e.date<=t);}
-  else if(_cuadMode==='type'){const tv=document.getElementById('cuad-type')?.value;if(tv)evs=evs.filter(e=>e.type===tv);}
-  else if(_cuadMode==='ticker'){const tk=(document.getElementById('cuad-ticker')?.value||'').toUpperCase();if(tk)evs=evs.filter(e=>(e.tickers||[]).includes(tk));}
-  evs=evs.sort((a,b)=>new Date(a.date)-new Date(b.date));
-  if(!evs.length){toast('Sin eventos para el cuadernillo','error');return;}
+  const evs=_cuadEvs;
+  if(!evs||!evs.length){toast('Sin eventos para el cuadernillo','error');return;}
 
   const now=new Date();
   const dateStr=now.toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'});
@@ -3446,8 +3712,10 @@ function setDriveUI(connected){
   }else{
     btn.classList.remove('connected');dot.style.background='var(--t3)';txt.textContent='Drive';
   }
+  // Sheets button — only show when admin and Drive connected
+  const ia=CU?.role==='admin'&&!_viewingAsUser;
   const sb=document.getElementById('sheets-btn');
-  if(sb)sb.style.display=connected?'':'none';
+  if(sb)sb.style.display=(ia&&connected)?'':'none';
 }
 
 // Token expiry tracking — Google tokens last ~1 hour
