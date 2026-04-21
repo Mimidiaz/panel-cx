@@ -1,0 +1,2272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Macros · CX Cocos</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET & TOKENS ─────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#060E1C;--s0:#0A1628;--s1:#0E1E38;--s2:#132446;--s3:#1A2E58;
+  --b0:rgba(255,255,255,.055);--b1:rgba(255,255,255,.10);--b2:rgba(255,255,255,.18);
+  --t0:#EFF6FF;--t1:#BDD5EE;--t2:#7EA8C9;--t3:#3D6480;
+  --blue:#0062DE;--blue2:#0052C0;--blue3:#D0E8FF;
+  --grn:#00BF8C;--amb:#F59E0B;--red:#F05C5C;--vio:#A78BFA;
+  --r-sm:6px;--r-md:10px;--r-lg:14px;--r-xl:20px;
+  --ff:'Plus Jakarta Sans',system-ui,sans-serif;--fm:'SF Mono','Fira Code',monospace;
+  --sh-sm:0 1px 3px rgba(0,0,0,.35),0 4px 12px rgba(0,0,0,.25);
+  --sh-md:0 2px 8px rgba(0,0,0,.45),0 10px 30px rgba(0,0,0,.35);
+  --sh-lg:0 4px 16px rgba(0,0,0,.55),0 20px 60px rgba(0,0,0,.4);
+}
+html.light{
+  --bg:#F4F7FC;--s0:#FFF;--s1:#EBF1FA;--s2:#DDE7F5;--s3:#CDDAF0;
+  --b0:rgba(10,50,120,.07);--b1:rgba(10,50,120,.13);--b2:rgba(10,50,120,.22);
+  --t0:#081528;--t1:#1A3A62;--t2:#3D6A9A;--t3:#7AA0C0;
+  --sh-sm:0 1px 3px rgba(0,0,0,.06),0 4px 12px rgba(0,0,0,.04);
+  --sh-md:0 2px 8px rgba(0,0,0,.08),0 10px 30px rgba(0,0,0,.05);
+}
+html,body{height:100%;overflow:hidden;font-family:var(--ff);background:var(--bg);color:var(--t0);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--b1);border-radius:4px}::-webkit-scrollbar-thumb:hover{background:var(--b2)}
+button,input,select,textarea{font-family:var(--ff)}
+a{color:inherit;text-decoration:none}
+
+/* ─── AUTH ───────────────────────────── */
+#auth{position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;background:var(--bg);background-image:radial-gradient(ellipse 700px 500px at 40% 50%,rgba(0,98,222,.08) 0%,transparent 70%)}
+.auth-wrap{width:380px}
+.auth-logotype{font-size:22px;font-weight:800;letter-spacing:-.04em;color:var(--t0);line-height:1;margin-bottom:4px}
+.auth-logotype em{color:var(--blue);font-style:normal}
+.auth-logotype-sub{font-size:11px;font-weight:500;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-bottom:36px}
+.auth-card{background:var(--s0);border:1px solid var(--b0);border-radius:var(--r-lg);padding:36px;box-shadow:var(--sh-md)}
+.auth-card-title{font-size:20px;font-weight:700;color:var(--t0);letter-spacing:-.03em;margin-bottom:5px}
+.auth-card-sub{font-size:13px;color:var(--t2);margin-bottom:28px}
+.form-field{margin-bottom:16px}
+.form-field label{display:block;font-size:11px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:7px}
+.form-field input{width:100%;padding:11px 14px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-sm);color:var(--t0);font-size:13px;outline:none;transition:border-color .15s,box-shadow .15s}
+.form-field input:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,98,222,.15)}
+.form-field input::placeholder{color:var(--t3)}
+.auth-err{font-size:12px;color:var(--red);display:none;margin-bottom:12px}
+.btn-login{width:100%;padding:12px;background:var(--blue);border:none;border-radius:var(--r-sm);color:#fff;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s;letter-spacing:-.01em}
+.btn-login:hover{background:var(--blue2)}
+.auth-back{display:block;text-align:center;margin-top:14px;font-size:12px;color:var(--t2);cursor:pointer;transition:color .12s}
+.auth-back:hover{color:var(--t0)}
+
+/* ─── SHELL ──────────────────────────── */
+#app{display:none;height:100vh;flex-direction:column}
+#app.on{display:flex}
+
+/* ─── HEADER ─────────────────────────── */
+.header{height:56px;background:var(--s0);border-bottom:1px solid var(--b0);display:flex;align-items:center;padding:0 24px;gap:0;flex-shrink:0}
+.hdr-brand{display:flex;flex-direction:column;padding-right:24px;border-right:1px solid var(--b0);margin-right:20px;flex-shrink:0}
+.hdr-logotype{font-size:16px;font-weight:800;letter-spacing:-.04em;color:var(--t0);line-height:1}
+.hdr-logotype em{color:var(--blue);font-style:normal}
+.hdr-sub{font-size:10px;font-weight:600;color:var(--t3);letter-spacing:.1em;text-transform:uppercase;margin-top:2px}
+
+/* MODE SWITCHER */
+.mode-switcher{display:flex;align-items:center;gap:3px;background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:3px}
+.mode-btn{padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--t2);transition:all .15s;white-space:nowrap}
+.mode-btn:hover{color:var(--t0)}
+.mode-btn.active{background:var(--s0);color:var(--t0);box-shadow:var(--sh-sm)}
+
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.hdr-divider{width:1px;height:20px;background:var(--b0)}
+.icon-btn{width:32px;height:32px;border-radius:var(--r-sm);background:transparent;border:1px solid var(--b0);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:12px;transition:all .12s}
+.icon-btn:hover{background:var(--b0);color:var(--t0)}
+.icon-btn.active{background:var(--b0);color:var(--t0)}
+.panel-link{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--t2);padding:6px 12px;border-radius:var(--r-sm);border:1px solid var(--b0);transition:all .12s}
+.panel-link:hover{background:var(--b0);color:var(--t0)}
+.panel-link svg{width:12px;height:12px}
+.user-pill{display:flex;align-items:center;gap:9px;padding:4px 12px 4px 4px;background:var(--s1);border:1px solid var(--b0);border-radius:99px;cursor:pointer;transition:all .12s}
+.user-pill:hover{background:var(--s2);border-color:var(--b1)}
+.uav{width:26px;height:26px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff;flex-shrink:0}
+.uname{font-size:12px;font-weight:600;color:var(--t0)}
+.urole{font-size:10px;color:var(--t3)}
+
+/* ─── BODY ───────────────────────────── */
+.body{display:flex;flex:1;overflow:hidden}
+
+/* ─── SIDEBAR ────────────────────────── */
+.sidebar{width:220px;background:var(--s0);border-right:1px solid var(--b0);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto;padding:12px 10px}
+.sb-section-label{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.09em;padding:10px 8px 5px}
+.sb-item{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;border-radius:var(--r-sm);cursor:pointer;transition:all .12s;color:var(--t2);font-size:12px;font-weight:500}
+.sb-item:hover{background:var(--b0);color:var(--t1)}
+.sb-item.on{background:rgba(0,98,222,.12);color:var(--t0);border-left:2px solid var(--blue);padding-left:8px}
+.sbi-l{display:flex;align-items:center;gap:8px}
+.sbi-l svg{width:13px;height:13px;flex-shrink:0;opacity:.7}
+.sb-count{font-size:10px;padding:2px 7px;border-radius:99px;background:var(--b0);color:var(--t3);font-weight:600}
+.sb-item.on .sb-count{background:rgba(0,98,222,.15);color:#7AB8FF}
+.sb-sep{height:1px;background:var(--b0);margin:6px 4px}
+.sdot{width:5px;height:5px;border-radius:50%;flex-shrink:0}
+
+/* cat dots */
+.cd-bloqueos{background:#f87171}.cd-aperturas{background:#60a5fa}.cd-onboarding{background:#34d399}
+.cd-retiros{background:#fbbf24}.cd-suscripciones{background:#a78bfa}.cd-seguimiento{background:#fb923c}
+.cd-reclamos{background:#f87171}.cd-consultas{background:#38bdf8}.cd-transferencias{background:#34d399}
+.cd-inversiones{background:#a78bfa}.cd-límites{background:#fb923c}.cd-otros{background:#94a3b8}
+.cd-documentación{background:#60a5fa}.cd-cierre{background:#f87171}
+/* cat text */
+.cg-bloqueos{color:#f87171}.cg-aperturas{color:#60a5fa}.cg-onboarding{color:#34d399}
+.cg-retiros{color:#fbbf24}.cg-suscripciones{color:#a78bfa}.cg-seguimiento{color:#fb923c}
+.cg-reclamos{color:#f87171}.cg-consultas{color:#38bdf8}.cg-transferencias{color:#34d399}
+.cg-inversiones{color:#a78bfa}.cg-límites{color:#fb923c}.cg-otros{color:#94a3b8}
+.cg-documentación{color:#60a5fa}.cg-cierre{color:#f87171}
+
+/* ─── CONTENT AREA ───────────────────── */
+.content{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* CONTENT BAR */
+.cbar{padding:12px 20px;border-bottom:1px solid var(--b0);display:flex;align-items:center;gap:10px;flex-shrink:0;background:var(--s0)}
+.cbar-left{}
+.cbar-title{font-size:15px;font-weight:700;color:var(--t0);letter-spacing:-.02em}
+.cbar-sub{font-size:11px;color:var(--t3);margin-top:1px}
+.cbar-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+.srch{display:flex;align-items:center;gap:7px;background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-sm);padding:7px 11px;width:230px;transition:border-color .15s}
+.srch:focus-within{border-color:var(--b2)}
+.srch svg{width:13px;height:13px;color:var(--t3);flex-shrink:0}
+.srch input{background:transparent;border:none;outline:none;color:var(--t0);font-size:12px;width:100%}
+.srch input::placeholder{color:var(--t3)}
+select.ssel{padding:7px 10px;background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t1);font-size:12px;cursor:pointer;outline:none;appearance:none}
+
+/* MACRO GRID */
+.mac-grid{flex:1;overflow-y:auto;padding:20px 22px;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px;align-content:start}
+
+/* MACRO CARD — exact values as specified */
+.mac-card{background:#F7F9FC;border:1px solid #E2E8F0;border-radius:12px;padding:16px;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.06);transition:transform .15s,box-shadow .15s;position:relative;overflow:hidden;display:flex;flex-direction:column;gap:0;animation:fadeUp .22s ease both;min-height:150px}
+.mac-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.12)}
+.mac-card.sel{border-color:#0062DE;box-shadow:0 0 0 2px rgba(0,98,222,.2)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+
+.mac-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.mac-cat-row{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.mac-title{font-size:16px;font-weight:600;color:#0A1628;letter-spacing:-.02em;line-height:1.3}
+.mac-fav{background:none;border:none;padding:0;cursor:pointer;font-size:15px;color:#94A3B8;transition:color .12s;flex-shrink:0;margin-left:4px;line-height:1}
+.mac-fav:hover{color:var(--amb)}.mac-fav.on{color:var(--amb)}
+
+/* Content preview — exact values as specified */
+.mac-preview{font-size:14.5px;color:#4A5568;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:8px 0 12px;flex:1}
+.mac-preview img,.mac-preview svg{display:none}
+
+.mac-footer{display:flex;align-items:center;justify-content:space-between;padding-top:10px;border-top:1px solid #E2E8F0;margin-top:auto;gap:8px}
+.mac-uses{font-size:11px;color:#64748B;white-space:nowrap}
+.mac-actions{display:flex;align-items:center;gap:5px;margin-left:auto}
+
+/* PiP button on card */
+.mac-pip-btn{background:none;border:1px solid #E2E8F0;border-radius:6px;padding:3px 7px;cursor:pointer;font-size:11px;color:#64748B;transition:all .12s;line-height:1.4;font-family:var(--ff)}
+.mac-pip-btn:hover{background:#F0F5FF;border-color:#CBD5E1;color:#0062DE}
+
+/* DETAIL PANEL */
+.detail{width:440px;background:var(--s0);border-left:1px solid var(--b0);display:flex;flex-direction:column;flex-shrink:0;overflow:hidden;transition:width .2s ease}
+.detail.closed{width:0;border-left:none}
+.dp-bar{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--b0);flex-shrink:0}
+.dp-label{font-size:11px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em}
+.dp-scroll{flex:1;overflow-y:auto;padding:18px}
+.dp-title{font-size:16px;font-weight:700;color:var(--t0);letter-spacing:-.02em;margin-bottom:7px}
+.dp-meta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;font-size:11px;color:var(--t3)}
+.dp-body{background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:14px;font-size:13px;color:var(--t1);line-height:1.75;margin-bottom:14px}
+.dp-body img{max-width:100%;border-radius:var(--r-sm);margin:6px 0;display:block}
+.dp-sec{font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.cmt{background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:10px 13px;margin-bottom:7px}
+.cmt-h{display:flex;align-items:center;gap:7px;margin-bottom:4px}
+.cmt-av{width:20px;height:20px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:600;color:var(--t1)}
+.cmt-user{font-size:12px;font-weight:600;color:var(--t0)}
+.cmt-date{font-size:10px;color:var(--t3);margin-left:auto}
+.cmt-body{font-size:12px;color:var(--t2);line-height:1.5}
+.cmt-row{display:flex;gap:7px;margin-top:10px}
+.cmt-inp{flex:1;padding:8px 11px;background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t0);font-size:12px;font-family:var(--ff);outline:none;resize:none;transition:border-color .15s}
+.cmt-inp:focus{border-color:var(--b2)}
+
+/* QA BADGE */
+.qa-badge{display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:99px;white-space:nowrap;flex-shrink:0}
+.qa-approved{background:rgba(0,191,140,.1);color:var(--grn);border:1px solid rgba(0,191,140,.3)}
+.qa-pending{background:rgba(100,116,139,.1);color:#64748B;border:1px solid rgba(100,116,139,.2)}
+.qa-rejected{background:rgba(240,92,92,.1);color:var(--red);border:1px solid rgba(240,92,92,.25)}
+
+/* Verified checkmark */
+.verified-mark{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;background:var(--grn);border-radius:50%;flex-shrink:0}
+.verified-mark svg{width:8px;height:8px;color:#fff}
+
+/* Rejection tooltip */
+.reject-tooltip{position:relative;cursor:help}
+.reject-tooltip:hover::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);background:#1a1a2e;color:#f8fafc;font-size:11px;font-weight:400;padding:6px 10px;border-radius:6px;white-space:normal;width:220px;text-align:left;z-index:99;pointer-events:none;border:1px solid var(--b0);line-height:1.5;box-shadow:var(--sh-md)}
+
+/* Top author/unapproved rows */
+.qa-mini-row{display:flex;align-items:center;gap:10px;padding:7px 16px;font-size:12px;border-bottom:1px solid var(--b0)}
+.qa-mini-row:last-child{border-bottom:none}
+.qa-mini-av{width:22px;height:22px;border-radius:50%;background:var(--s2);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--t1);flex-shrink:0}
+.qa-mini-name{flex:1;color:var(--t1);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qa-mini-count{font-size:11px;font-weight:700;padding:2px 7px;border-radius:99px;background:rgba(245,158,11,.12);color:var(--amb);flex-shrink:0}
+#view-usuario{display:none;flex:1;overflow:hidden}
+#view-usuario.on{display:flex;flex:1}
+#view-qa{display:none;flex-direction:column;overflow:hidden;flex:1}
+#view-qa.on{display:flex;flex:1}
+
+.qa-main{flex:1;overflow-y:auto;padding:20px 24px;max-width:1200px;margin:0 auto;width:100%}
+
+/* QA TABS */
+.qa-tabs{display:flex;gap:3px;margin-bottom:20px;background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:4px;width:fit-content}
+.qa-tab{padding:7px 16px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:none;background:transparent;color:var(--t2);transition:all .15s}
+.qa-tab:hover{color:var(--t0)}
+.qa-tab.on{background:var(--s0);color:var(--t0);box-shadow:var(--sh-sm)}
+
+/* QA STATS */
+.qa-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.qa-stat{background:var(--s0);border:1px solid var(--b0);border-radius:var(--r-md);padding:18px 20px;position:relative;overflow:hidden}
+.qa-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--sc,var(--blue));opacity:.6}
+.qa-stat-val{font-size:28px;font-weight:800;color:var(--t0);letter-spacing:-.04em;line-height:1;margin-bottom:5px}
+.qa-stat-lbl{font-size:11px;font-weight:600;color:var(--t2)}
+.qa-stat-sub{font-size:10px;color:var(--t3);margin-top:2px}
+
+/* QA TABLE */
+.qa-table-wrap{background:var(--s0);border:1px solid var(--b0);border-radius:var(--r-md);overflow:hidden}
+.qa-toolbar{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--b0);flex-wrap:wrap}
+table.qa-tbl{width:100%;border-collapse:collapse}
+table.qa-tbl thead th{background:var(--s1);padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t2);white-space:nowrap;border-bottom:1px solid var(--b0)}
+table.qa-tbl tbody tr{border-bottom:1px solid rgba(255,255,255,.04);transition:background .1s}
+table.qa-tbl tbody tr:last-child{border-bottom:none}
+table.qa-tbl tbody tr:hover{background:var(--s1)}
+table.qa-tbl tbody td{padding:11px 14px;font-size:13px;vertical-align:middle}
+
+/* ANALYTICS */
+.analytics-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.analytics-card{background:var(--s0);border:1px solid var(--b0);border-radius:var(--r-md);overflow:hidden}
+.analytics-card-header{padding:14px 18px;border-bottom:1px solid var(--b0)}
+.analytics-card-title{font-size:12px;font-weight:700;color:var(--t1);text-transform:uppercase;letter-spacing:.08em}
+.analytics-card-body{padding:14px 18px}
+.bar-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.bar-row:last-child{margin-bottom:0}
+.bar-label{font-size:12px;color:var(--t1);width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.bar-track{flex:1;height:6px;background:var(--b0);border-radius:3px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:var(--blue);transition:width .4s ease}
+.bar-val{font-size:11px;color:var(--t3);width:28px;text-align:right;flex-shrink:0}
+
+/* ADMIN view placeholder */
+.admin-main{padding:20px 24px;max-width:1000px;margin:0 auto;width:100%}
+
+/* ─── RICH EDITOR ────────────────────── */
+.editor-wrap{background:var(--bg);border:1px solid var(--b1);border-radius:var(--r-md);overflow:hidden}
+.editor-wrap:focus-within{border-color:var(--blue)}
+.editor-toolbar{display:flex;align-items:center;gap:2px;padding:6px 8px;border-bottom:1px solid var(--b0);flex-wrap:wrap;background:var(--s1)}
+.tb-tool{width:27px;height:27px;border-radius:var(--r-sm);border:none;background:transparent;color:var(--t2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:12px;transition:all .12s;font-family:var(--ff);font-weight:600}
+.tb-tool:hover{background:var(--b1);color:var(--t0)}
+.tb-tool.on{background:rgba(0,98,222,.2);color:#7AB8FF}
+.tb-tool svg{width:12px;height:12px}
+.tb-sep{width:1px;height:16px;background:var(--b0);margin:0 3px}
+.editor-body{min-height:130px;max-height:260px;overflow-y:auto;padding:12px;outline:none;font-size:13px;color:var(--t0);line-height:1.75;caret-color:var(--blue)}
+.editor-body:empty:before{content:attr(data-placeholder);color:var(--t3);pointer-events:none}
+.editor-body img{max-width:100%;border-radius:var(--r-sm);display:block;margin:6px 0}
+.editor-body b,.editor-body strong{font-weight:700}
+.editor-body .var-span{background:rgba(0,98,222,.15);color:#93c5fd;padding:0 3px;border-radius:3px;font-size:12px;font-family:var(--fm)}
+.img-drop-hint{font-size:11px;color:var(--t3);padding:4px 8px;display:flex;align-items:center;gap:5px;border-top:1px solid var(--b0);background:var(--s1)}
+
+/* ─── SETTINGS PANEL ─────────────────── */
+.settings-panel{position:fixed;top:56px;right:0;bottom:0;width:480px;background:var(--s0);border-left:1px solid var(--b0);z-index:50;display:none;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.3);overflow:hidden}
+.settings-panel.on{display:flex}
+.sp-head{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--b0);flex-shrink:0}
+.sp-title{font-size:13px;font-weight:700;color:var(--t0)}
+.sp-tabs{display:flex;border-bottom:1px solid var(--b0);flex-shrink:0;padding:0 14px}
+.sp-tab{padding:10px 12px;font-size:12px;font-weight:600;color:var(--t2);background:transparent;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;font-family:var(--ff)}
+.sp-tab:hover{color:var(--t0)}.sp-tab.on{color:var(--t0);border-bottom-color:var(--blue)}
+.sp-body{flex:1;overflow-y:auto;padding:16px 18px}
+.panel{background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);overflow:hidden;margin-bottom:12px}
+.ph{padding:10px 14px;border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between}
+.ph-title{font-size:11px;font-weight:700;color:var(--t1);text-transform:uppercase;letter-spacing:.05em}
+.pb{padding:12px 14px}
+.rp{font-size:10px;padding:2px 8px;border-radius:99px;text-transform:uppercase;font-weight:700;letter-spacing:.05em}
+.rp-a{background:rgba(0,98,222,.15);color:#7AB8FF;border:1px solid rgba(0,98,222,.25)}
+.rp-q{background:rgba(167,139,250,.15);color:#c4b5fd;border:1px solid rgba(167,139,250,.25)}
+.rp-g{background:rgba(0,191,140,.1);color:var(--grn);border:1px solid rgba(0,191,140,.25)}
+.sb-status{display:flex;align-items:center;gap:7px;padding:6px 10px;border-radius:var(--r-sm);font-size:12px;font-weight:500;border:1px solid var(--b0)}
+.sb-status.conn{background:rgba(0,191,140,.07);border-color:rgba(0,191,140,.2);color:var(--grn)}
+.status-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.uav2{width:30px;height:30px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.drop-zone{border:2px dashed var(--b1);border-radius:var(--r-md);padding:24px;text-align:center;cursor:pointer;transition:all .15s;background:var(--s1)}
+.drop-zone:hover,.drop-zone.drag{border-color:var(--blue);background:rgba(0,98,222,.05)}
+
+/* ─── BUTTONS ────────────────────────── */
+.btn{display:inline-flex;align-items:center;gap:5px;padding:8px 14px;border-radius:var(--r-sm);font-size:12px;font-weight:600;cursor:pointer;transition:all .12s;border:none;font-family:var(--ff);line-height:1}
+.btn svg{width:12px;height:12px;flex-shrink:0}
+.btn-primary{background:var(--blue);color:#fff}.btn-primary:hover{background:var(--blue2)}
+.btn-secondary{background:transparent;border:1px solid var(--b1);color:var(--t1)}.btn-secondary:hover{background:var(--b0);color:var(--t0);border-color:var(--b2)}
+.btn-success{background:rgba(0,191,140,.1);border:1px solid rgba(0,191,140,.25);color:var(--grn)}.btn-success:hover{background:rgba(0,191,140,.2)}
+.btn-danger{background:rgba(240,92,92,.08);border:1px solid rgba(240,92,92,.2);color:#f87171}.btn-danger:hover{background:rgba(240,92,92,.16)}
+.btn-sm{padding:5px 10px;font-size:11px}
+.btn-xs{padding:4px 8px;font-size:11px}
+
+/* ─── MODALS ─────────────────────────── */
+.overlay{position:fixed;inset:0;background:rgba(4,10,22,.75);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:400;padding:20px}
+.overlay.on{display:flex}
+.modal{background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-xl);width:100%;max-width:560px;max-height:92vh;overflow-y:auto;box-shadow:var(--sh-lg);animation:modalIn .2s cubic-bezier(.34,1.3,.64,1) both}
+@keyframes modalIn{from{opacity:0;transform:scale(.96) translateY(6px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.mh{padding:20px 22px 16px;border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:sticky;top:0;background:var(--s1);z-index:1}
+.mh-title{font-size:15px;font-weight:700;color:var(--t0);letter-spacing:-.02em}
+.mx{width:28px;height:28px;border-radius:var(--r-sm);background:var(--b0);border:none;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--t2);font-size:14px;transition:all .12s}
+.mx:hover{background:var(--b1);color:var(--t0)}
+.mb{padding:20px 22px}
+.mf{padding:14px 22px;border-top:1px solid var(--b0);display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:var(--s1)}
+.fg{margin-bottom:13px}
+.fg label{display:block;font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.fi{width:100%;padding:9px 12px;background:var(--bg);border:1px solid var(--b0);border-radius:var(--r-sm);color:var(--t0);font-size:13px;font-family:var(--ff);outline:none;transition:border-color .15s,box-shadow .15s}
+.fi:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(0,98,222,.12)}
+.fi::placeholder{color:var(--t3)}
+select.fi{appearance:none;cursor:pointer}
+textarea.fi{resize:vertical;min-height:72px;line-height:1.6}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Change pass overlay */
+#chpass-overlay{position:fixed;inset:0;background:rgba(4,10,22,.85);backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;z-index:600;padding:20px}
+#chpass-overlay.on{display:flex}
+
+/* ─── MISC ───────────────────────────── */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px;color:var(--t3);text-align:center;grid-column:1/-1}
+.empty-ico{font-size:32px;opacity:.25;margin-bottom:10px}
+.empty-t{font-size:13px;color:var(--t2);margin-bottom:4px}
+.empty-s{font-size:11px}
+.toast{position:fixed;bottom:20px;right:20px;padding:11px 18px;border-radius:var(--r-md);font-size:12px;font-weight:600;box-shadow:var(--sh-md);z-index:999;display:none;align-items:center;gap:8px;background:var(--s2);border:1px solid var(--b1);color:var(--t0);min-width:210px}
+.toast.on{display:flex;animation:fup .2s ease}
+.toast.ok{border-color:rgba(0,191,140,.3);color:var(--grn)}
+.toast.er{border-color:rgba(240,92,92,.3);color:#f87171}
+.toast.in{border-color:rgba(0,98,222,.3);color:#7AB8FF}
+@keyframes fup{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.spin{width:14px;height:14px;border:2px solid var(--b1);border-top-color:var(--blue);border-radius:50%;animation:spin .65s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── LIGHT MODE PATCHES ─────────────── */
+html.light .analytics-card,.light .qa-stat,.light .qa-table-wrap,.light .settings-panel,.light .modal,.light .detail,.light .auth-card{background:#fff}
+html.light .mh,.light .mf,.light .sp-body{background:#fff}
+/* Cards already use #F7F9FC / #E2E8F0 — no override needed */
+/* ─── CARD EXPAND ON HOVER ───────────── */
+/* La card crece verticalmente al hacer hover.
+   El .mac-preview pasa de 2 líneas a hasta 8.
+   Z-index elevado para que se muestre encima de las cards vecinas.
+   Sin JS, sin markup extra. */
+
+.mac-grid{
+  /* Necesario para que z-index funcione entre cards del mismo grid */
+  align-items: start;
+}
+.mac-card{
+  transition: transform .18s ease, box-shadow .18s ease, z-index 0s;
+  z-index: 0;
+  position: relative;
+}
+.mac-card:hover{
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 8px 28px rgba(0,0,0,.14), 0 2px 6px rgba(0,0,0,.08);
+  z-index: 10;
+}
+/* Preview: 2 líneas en reposo → hasta 8 en hover */
+.mac-preview{
+  -webkit-line-clamp: 2;
+  transition: max-height .22s ease, -webkit-line-clamp 0s;
+  /* max-height para transición suave */
+  max-height: calc(1.45em * 2 + 2px);
+  overflow: hidden;
+}
+.mac-card:hover .mac-preview{
+  -webkit-line-clamp: unset;
+  -webkit-box-orient: unset;
+  display: block;            /* anula el -webkit-box */
+  max-height: calc(1.45em * 8);
+  overflow: hidden;
+}
+/* ─── PiP WINDOW ─────────────────────── */
+.pip-win{position:fixed;bottom:70px;right:20px;width:340px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-lg);box-shadow:var(--sh-lg);z-index:500;display:none;flex-direction:column;overflow:hidden;max-height:520px}
+.pip-win.on{display:flex}
+.pip-win.minimized .pip-body,.pip-win.minimized .pip-foot,.pip-win.minimized #pip-list-view{display:none!important}
+.pip-bar{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--s2);border-bottom:1px solid var(--b0);cursor:move;flex-shrink:0;user-select:none}
+.pip-title{font-size:12px;font-weight:600;color:var(--t0);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pip-body{flex:1;overflow-y:auto;padding:13px;font-size:13px;color:var(--t1);line-height:1.75}
+.pip-body img{max-width:100%;border-radius:var(--r-sm);display:block;margin:4px 0}
+.pip-foot{display:flex;gap:6px;padding:9px 12px;border-top:1px solid var(--b0);flex-shrink:0;background:var(--s2)}
+.pip-item{display:flex;align-items:center;padding:8px 10px;border-bottom:1px solid var(--b0);cursor:pointer;transition:background .1s}
+.pip-item:hover{background:var(--s2)}
+.pip-item-title{font-size:12px;font-weight:500;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pip-item-cat{font-size:10px;color:var(--t3);margin-top:1px}
+.pip-item-actions{display:flex;gap:4px;flex-shrink:0;margin-left:8px}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH ══════════════════════════ -->
+<div id="auth">
+  <div class="auth-wrap">
+    <div class="auth-logotype">cocos<em>.</em>capital</div>
+    <div class="auth-logotype-sub">Macros · CX</div>
+    <div class="auth-card">
+      <div class="auth-card-title">Iniciar sesión</div>
+      <div class="auth-card-sub">Accedé con tu cuenta del equipo</div>
+      <div class="form-field"><label>Correo o usuario</label><input id="li-e" type="text" placeholder="correo o usuario" autofocus autocomplete="username"></div>
+      <div class="form-field"><label>Contraseña</label><input id="li-p" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div class="auth-err" id="auth-err"></div>
+      <button class="btn-login" onclick="doLogin()">Continuar →</button>
+      <a class="auth-back" id="back-to-panel" style="display:none" href="panel-cx.html">← Volver al Panel CX</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP ═══════════════════════════ -->
+<div id="app">
+  <!-- HEADER -->
+  <header class="header">
+    <div class="hdr-brand">
+      <div class="hdr-logotype">cocos<em>.</em></div>
+      <div class="hdr-sub">Macros</div>
+    </div>
+
+    <!-- MODE SWITCHER (visible only if multi-role) -->
+    <div class="mode-switcher" id="mode-switcher" style="display:none">
+      <button class="mode-btn active" id="mb-usuario" onclick="setMode('usuario')">Usuario</button>
+      <button class="mode-btn" id="mb-calidad" onclick="setMode('calidad')" style="display:none">Calidad</button>
+    </div>
+
+    <div class="hdr-right">
+      <div id="db-status-badge"></div>
+      <a class="panel-link" href="panel-cx.html">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M2 2a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V4a2 2 0 00-2-2H2zm0 1h12a1 1 0 011 1v1H1V4a1 1 0 011-1zm13 3v7a1 1 0 01-1 1H2a1 1 0 01-1-1V6h14z"/></svg>
+        Panel CX
+      </a>
+      <div class="hdr-divider"></div>
+      <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Cambiar tema">🌙</button>
+      <div class="notif-wrap" style="position:relative">
+        <button class="icon-btn" id="notif-btn" onclick="cxNotifToggle()" title="Notificaciones">
+          🔔<span id="notif-badge" style="display:none;position:absolute;top:3px;right:3px;width:8px;height:8px;border-radius:50%;background:#F05C5C;border:2px solid var(--s0)"></span>
+        </button>
+      </div>
+      <button class="icon-btn" id="settings-btn" onclick="toggleSettings()" title="Configuración">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><path d="M8 4.754a3.246 3.246 0 100 6.492 3.246 3.246 0 000-6.492zM5.754 8a2.246 2.246 0 114.492 0 2.246 2.246 0 01-4.492 0z"/><path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 01-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 01-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 01.52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 011.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 011.255-.52l.292.16c1.64.892 3.433-.902 2.54-2.541l-.159-.292a.873.873 0 01.52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 01-.52-1.255l.16-.292c.892-1.64-.901-3.433-2.541-2.54l-.292.159a.873.873 0 01-1.255-.52l-.094-.319z"/></svg>
+      </button>
+      <div class="user-pill" onclick="showUserMenu()">
+        <div class="uav" id="u-av">?</div>
+        <div>
+          <div class="uname" id="u-name">—</div>
+          <div class="urole" id="u-role">—</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="body">
+
+    <!-- ══ VIEW: USUARIO ══════════════════ -->
+    <div id="view-usuario" style="flex:1;overflow:hidden">
+      <!-- SIDEBAR -->
+      <aside class="sidebar">
+        <div class="sb-section-label" style="margin-top:2px">Vistas</div>
+        <div class="sb-item on" id="sf-mine" onclick="setF('mine')">
+          <div class="sbi-l"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 8a3 3 0 100-6 3 3 0 000 6zm-5 6a5 5 0 0110 0H3z"/></svg>Mis macros</div>
+          <span class="sb-count" id="cnt-mine">0</span>
+        </div>
+        <div class="sb-item" id="sf-shared" onclick="setF('shared')">
+          <div class="sbi-l"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M2.5 1a1 1 0 00-1 1v11a1 1 0 001 1H9a1 1 0 001-1V4.914a1 1 0 00-.293-.707L7.793 2.293A1 1 0 007.086 2H2.5zm0 1h4.586L9 3.914V13H2.5V2zm5 8a.5.5 0 000 1h2a.5.5 0 000-1h-2zm0-2a.5.5 0 000 1h2a.5.5 0 000-1h-2zm-4-2a.5.5 0 000 1h6a.5.5 0 000-1h-6zm0-2a.5.5 0 000 1h6a.5.5 0 000-1h-6z"/></svg>Oficiales</div>
+          <span class="sb-count" id="cnt-shared">0</span>
+        </div>
+        <div class="sb-item" id="sf-fav" onclick="setF('fav')">
+          <div class="sbi-l"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l2 4 5 .7-3.5 3.4.8 4.9L8 12l-4.3 2 .8-4.9L1 5.7 6 5z"/></svg>Favoritas</div>
+          <span class="sb-count" id="cnt-fav">0</span>
+        </div>
+        <div class="sb-sep"></div>
+        <div class="sb-section-label">Categorías</div>
+        <div id="sb-cats"></div>
+      </aside>
+
+      <!-- CONTENT -->
+      <div class="content">
+        <div class="cbar">
+          <div class="cbar-left">
+            <div class="cbar-title" id="cbar-title">Mis macros</div>
+            <div class="cbar-sub" id="cbar-sub"></div>
+          </div>
+          <div class="cbar-right">
+            <div class="srch">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.4 10A5.5 5.5 0 102.6 2.6a5.5 5.5 0 008.8 7.4l3.3 3.3 1.4-1.4-3.3-3.3zm-5-.4a3.5 3.5 0 113.5-3.5A3.5 3.5 0 016.4 9.6z"/></svg>
+              <input type="text" id="q" placeholder="Buscar macros…" oninput="draw()">
+            </div>
+            <select class="ssel" id="sort" onchange="draw()">
+              <option value="new">Recientes</option>
+              <option value="use">Más usadas</option>
+              <option value="az">A → Z</option>
+            </select>
+            <button class="btn btn-primary" onclick="openM('create')">
+              <svg viewBox="0 0 16 16" fill="currentColor"><path d="M7 1v6H1v2h6v6h2V9h6V7H9V1z"/></svg>Nueva macro
+            </button>
+          </div>
+        </div>
+        <div class="mac-grid" id="grid"></div>
+      </div>
+
+      <!-- DETAIL -->
+      <div class="detail closed" id="detail">
+        <div class="dp-bar">
+          <span class="dp-label">Detalle</span>
+          <button class="btn btn-secondary btn-xs" onclick="closeDetail()">Cerrar</button>
+        </div>
+        <div class="dp-scroll" id="dp-scroll"></div>
+      </div>
+    </div>
+
+    <!-- ══ VIEW: CALIDAD ══════════════════ -->
+    <div id="view-qa">
+      <div class="qa-main">
+
+        <!-- QA TABS -->
+        <div class="qa-tabs">
+          <button class="qa-tab on" id="qa-tab-approval" onclick="setQaTab('approval',this)">Panel de aprobación</button>
+          <button class="qa-tab" id="qa-tab-analytics" onclick="setQaTab('analytics',this)">Analytics de uso</button>
+        </div>
+
+        <!-- APPROVAL PANEL -->
+        <div id="qa-section-approval">
+
+          <!-- Stats row: 6 tiles -->
+          <div class="qa-stats" id="qa-stats" style="grid-template-columns:repeat(6,1fr)">
+            <div class="qa-stat" style="--sc:var(--grn)">
+              <div class="qa-stat-val" id="qs-aprobadas">—</div>
+              <div class="qa-stat-lbl">Aprobadas</div>
+              <div class="qa-stat-sub">Total</div>
+            </div>
+            <div class="qa-stat" style="--sc:rgba(0,191,140,.5)">
+              <div class="qa-stat-val" id="qs-ap7">—</div>
+              <div class="qa-stat-lbl">Últ. 7 días</div>
+              <div class="qa-stat-sub">Aprobadas</div>
+            </div>
+            <div class="qa-stat" style="--sc:var(--amb)">
+              <div class="qa-stat-val" id="qs-pendientes">—</div>
+              <div class="qa-stat-lbl">Pendientes</div>
+              <div class="qa-stat-sub">Sin revisar</div>
+            </div>
+            <div class="qa-stat" style="--sc:var(--red)">
+              <div class="qa-stat-val" id="qs-rechazadas">—</div>
+              <div class="qa-stat-lbl">Rechazadas</div>
+              <div class="qa-stat-sub">Con motivo</div>
+            </div>
+            <div class="qa-stat" style="--sc:var(--blue)">
+              <div class="qa-stat-val" id="qs-total">—</div>
+              <div class="qa-stat-lbl">Total</div>
+              <div class="qa-stat-sub">En sistema</div>
+            </div>
+            <div class="qa-stat" style="--sc:var(--vio)">
+              <div class="qa-stat-val" id="qs-sinAprobar">—</div>
+              <div class="qa-stat-lbl">Más usadas</div>
+              <div class="qa-stat-sub">Sin aprobar</div>
+            </div>
+          </div>
+
+          <!-- Top pending authors + top unapproved -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:20px">
+            <div class="qa-table-wrap">
+              <div style="padding:11px 16px;border-bottom:1px solid var(--b0);font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.08em">Top 5 autores con más pendientes</div>
+              <div id="qa-top-authors" style="padding:8px 0"></div>
+            </div>
+            <div class="qa-table-wrap">
+              <div style="padding:11px 16px;border-bottom:1px solid var(--b0);font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.08em">Macros más usadas sin aprobar</div>
+              <div id="qa-top-unapproved" style="padding:8px 0"></div>
+            </div>
+          </div>
+
+          <!-- Advanced filters -->
+          <div class="qa-table-wrap">
+            <div class="qa-toolbar" style="flex-wrap:wrap;gap:8px">
+              <div class="srch" style="width:220px;flex-shrink:0">
+                <svg viewBox="0 0 16 16" fill="currentColor"><path d="M11.4 10A5.5 5.5 0 102.6 2.6a5.5 5.5 0 008.8 7.4l3.3 3.3 1.4-1.4-3.3-3.3zm-5-.4a3.5 3.5 0 113.5-3.5A3.5 3.5 0 016.4 9.6z"/></svg>
+                <input type="text" id="qa-q" placeholder="Buscar…" oninput="renderQATable()">
+              </div>
+              <select class="ssel" id="qa-filter-estado" onchange="renderQATable()">
+                <option value="">Estado</option>
+                <option value="pendiente">Pendiente</option>
+                <option value="aprobada">Aprobada</option>
+                <option value="rechazada">Rechazada</option>
+              </select>
+              <select class="ssel" id="qa-filter-autor" onchange="renderQATable()">
+                <option value="">Autor</option>
+              </select>
+              <select class="ssel" id="qa-filter-cat" onchange="renderQATable()">
+                <option value="">Categoría</option>
+              </select>
+              <select class="ssel" id="qa-filter-tipo" onchange="renderQATable()">
+                <option value="">Tipo</option>
+                <option value="shared">Compartida</option>
+                <option value="private">Privada</option>
+              </select>
+              <select class="ssel" id="qa-filter-fecha" onchange="renderQATable()">
+                <option value="">Fecha creación</option>
+                <option value="7">Últimos 7 días</option>
+                <option value="30">Últimos 30 días</option>
+                <option value="90">Últimos 90 días</option>
+              </select>
+              <select class="ssel" id="qa-sort" onchange="renderQATable()">
+                <option value="estado">Ordenar: Estado</option>
+                <option value="fecha_creacion">Creación</option>
+                <option value="fecha_mod">Modificación</option>
+                <option value="usos">Usos</option>
+                <option value="autor">Autor A→Z</option>
+              </select>
+              <div style="flex:1;min-width:8px"></div>
+              <button class="btn btn-success btn-sm" onclick="approveAll()">✓ Aprobar visibles</button>
+              <button class="btn btn-secondary btn-sm" onclick="openExportPDFModal()" style="display:flex;align-items:center;gap:5px">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/><path d="M7.646 11.854a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L8.5 10.293V1.5a.5.5 0 00-1 0v8.793L5.354 8.146a.5.5 0 10-.708.708l3 3z"/></svg>
+                Exportar PDF
+              </button>
+              <button class="btn btn-secondary btn-sm" onclick="exportQualityExcel()" style="display:flex;align-items:center;gap:5px">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M14 4.5V14a2 2 0 01-2 2H4a2 2 0 01-2-2V2a2 2 0 012-2h5.5L14 4.5zm-3 0A1.5 1.5 0 019.5 3V1H4a1 1 0 00-1 1v12a1 1 0 001 1h8a1 1 0 001-1V4.5h-2z"/><path d="M4.5 12.5A.5.5 0 015 12h1.5v-1H5a.5.5 0 010-1h1.5V9H5a.5.5 0 010-1h1.5V7.5a.5.5 0 011 0V8H9a.5.5 0 010 1H7.5v1H9a.5.5 0 010 1H7.5v1H9a.5.5 0 010 1H7.5v.5a.5.5 0 01-1 0V13H5a.5.5 0 01-.5-.5z"/></svg>
+                Excel
+              </button>
+            </div>
+            <div id="qa-count-bar" style="padding:7px 16px;font-size:11px;color:var(--t3);border-bottom:1px solid var(--b0)">—</div>
+            <div style="overflow-x:auto">
+              <table class="qa-tbl">
+                <thead>
+                  <tr>
+                    <th style="width:36%">Macro</th>
+                    <th>Categoría</th>
+                    <th>Autor</th>
+                    <th>Creación</th>
+                    <th>Estado</th>
+                    <th>Revisión</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="qa-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+
+        </div><!-- /qa-section-approval -->
+
+        <!-- ANALYTICS PANEL -->
+        <div id="qa-section-analytics" style="display:none">
+          <div class="analytics-grid" id="analytics-grid">
+            <div style="color:var(--t3);font-size:13px;padding:20px">Cargando analytics…</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ MODAL: REVISIÓN CALIDAD ═══════ -->
+    <div class="overlay" id="overlay-qa-review" onclick="if(event.target===this)closeQAReview()">
+      <div class="modal" style="max-width:680px">
+        <div class="mh">
+          <h3 class="mh-title" id="qar-title">Revisar macro</h3>
+          <button class="mx" onclick="closeQAReview()">✕</button>
+        </div>
+        <div class="mb" id="qar-body"></div>
+        <div class="mf" id="qar-footer"></div>
+      </div>
+    </div>
+
+    <!-- ══ MODAL: MOTIVO DE RECHAZO ══════ -->
+    <div class="overlay" id="overlay-reject" onclick="if(event.target===this)closeRejectModal()">
+      <div class="modal" style="max-width:460px">
+        <div class="mh">
+          <h3 class="mh-title">Motivo de rechazo</h3>
+          <button class="mx" onclick="closeRejectModal()">✕</button>
+        </div>
+        <div class="mb">
+          <div class="fg">
+            <label>Explicá el motivo para el autor</label>
+            <textarea class="fi" id="reject-reason" rows="4" placeholder="Ej: El contenido no sigue el tono institucional, falta información sobre el proceso de…"></textarea>
+          </div>
+          <div style="font-size:11px;color:var(--t3);margin-top:-4px">Este mensaje será visible para quien creó la macro.</div>
+        </div>
+        <div class="mf">
+          <button class="btn btn-secondary" onclick="closeRejectModal()">Cancelar</button>
+          <button class="btn btn-danger" onclick="confirmReject()">Rechazar</button>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- ══ MODAL: EXPORTAR PDF CALIDAD ══ -->
+    <div class="overlay" id="overlay-pdf-export" onclick="if(event.target===this)closeExportPDFModal()">
+      <div class="modal" style="max-width:480px">
+        <div class="mh">
+          <h3 class="mh-title">Exportar reporte de Calidad</h3>
+          <button class="mx" onclick="closeExportPDFModal()">✕</button>
+        </div>
+        <div class="mb">
+          <div class="fg">
+            <label>Estado a incluir</label>
+            <select class="fi" id="pdf-filter-estado">
+              <option value="todos">Todos (aprobadas + pendientes + rechazadas)</option>
+              <option value="aprobada">Solo aprobadas</option>
+              <option value="pendiente">Solo pendientes</option>
+              <option value="rechazada">Solo rechazadas</option>
+            </select>
+          </div>
+          <div class="frow">
+            <div class="fg">
+              <label>Fecha desde</label>
+              <input type="date" class="fi" id="pdf-fecha-desde">
+            </div>
+            <div class="fg">
+              <label>Fecha hasta</label>
+              <input type="date" class="fi" id="pdf-fecha-hasta">
+            </div>
+          </div>
+          <div class="fg">
+            <label>Categoría</label>
+            <select class="fi" id="pdf-filter-cat">
+              <option value="">Todas las categorías</option>
+            </select>
+          </div>
+          <div id="pdf-preview-count" style="font-size:12px;color:var(--t2);padding:8px 12px;background:var(--bg);border-radius:var(--r-sm);border:1px solid var(--b0)">
+            — macros incluidas
+          </div>
+        </div>
+        <div class="mf">
+          <button class="btn btn-secondary" onclick="closeExportPDFModal()">Cancelar</button>
+          <button class="btn btn-primary" onclick="exportQualityReport()" style="display:flex;align-items:center;gap:5px">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M.5 9.9a.5.5 0 01.5.5v2.5a1 1 0 001 1h12a1 1 0 001-1v-2.5a.5.5 0 011 0v2.5a2 2 0 01-2 2H2a2 2 0 01-2-2v-2.5a.5.5 0 01.5-.5z"/><path d="M7.646 11.854a.5.5 0 00.708 0l3-3a.5.5 0 00-.708-.708L8.5 10.293V1.5a.5.5 0 00-1 0v8.793L5.354 8.146a.5.5 0 10-.708.708l3 3z"/></svg>
+            Generar PDF
+          </button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /body -->
+
+  <!-- SETTINGS PANEL -->
+  <div class="settings-panel" id="settings-panel">
+    <div class="sp-head"><span class="sp-title">Configuración</span><button class="mx" onclick="toggleSettings()">✕</button></div>
+    <div class="sp-tabs">
+      <button class="sp-tab on" onclick="spTab('analytics')">Analytics</button>
+      <button class="sp-tab" onclick="spTab('ie')">Import / Export</button>
+      <button class="sp-tab" id="tab-db" onclick="spTab('supabase')">Base de datos</button>
+    </div>
+    <div class="sp-body" id="sp-body"></div>
+  </div>
+</div><!-- /app -->
+
+<!-- NOTIFICATION PANEL -->
+<div id="notif-panel" style="display:none;position:fixed;top:52px;right:0;width:360px;height:calc(100vh - 52px);background:var(--s0);border-left:1px solid var(--b0);z-index:300;box-shadow:-4px 0 24px rgba(0,0,0,.3);flex-direction:column;overflow:hidden">
+  <div style="padding:14px 18px;border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+    <div style="font-size:14px;font-weight:700;color:var(--t0)">Notificaciones</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="cxNotifMarkAll()" style="font-size:11px;color:var(--blue);background:none;border:none;cursor:pointer;font-family:var(--ff)">Marcar todo leído</button>
+      <button onclick="cxNotifToggle()" style="background:none;border:none;cursor:pointer;color:var(--t3);font-size:18px;line-height:1;padding:0">×</button>
+    </div>
+  </div>
+  <div id="notif-list" style="flex:1;overflow-y:auto;padding:6px 0"></div>
+</div>
+<div id="notif-overlay" onclick="cxNotifToggle()" style="display:none;position:fixed;inset:0;z-index:299"></div>
+
+<!-- PiP WINDOW -->
+<div class="pip-win" id="pip-win">
+  <div class="pip-bar" id="pip-bar">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" style="color:var(--t3);flex-shrink:0"><path d="M1 2a1 1 0 011-1h12a1 1 0 011 1v10a1 1 0 01-1 1H9v-1h5V2H2v4H1V2zm4 7H1v4h4v-4zm-1 1v2H2v-2h2z"/></svg>
+    <span class="pip-title" id="pip-title">—</span>
+    <button class="mx" onclick="togglePiPMin()" id="pip-min-btn" style="width:22px;height:22px;font-size:13px;flex-shrink:0">−</button>
+    <button class="mx" onclick="closePiP()" style="width:22px;height:22px;font-size:11px;flex-shrink:0">✕</button>
+  </div>
+  <div id="pip-content-view" style="display:flex;flex-direction:column;flex:1;overflow:hidden">
+    <div class="pip-body" id="pip-body"></div>
+    <div class="pip-foot">
+      <button class="btn btn-primary btn-xs" id="pip-copy-btn" onclick="pipCopy()" style="flex:1">
+        <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor"><path d="M4 2h8v2H4zm-2 2h12v11H2V4zm2 2v7h8V6H4z"/></svg>Copiar
+      </button>
+      <button class="btn btn-secondary btn-xs" onclick="togglePiPMode()" id="pip-mode-btn">☰ Lista</button>
+      <button class="btn btn-secondary btn-xs" onclick="closePiP()">Cerrar</button>
+    </div>
+  </div>
+  <div id="pip-list-view" style="display:none;flex-direction:column;flex:1;overflow:hidden">
+    <div style="padding:8px 10px;border-bottom:1px solid var(--b0);flex-shrink:0">
+      <div class="srch" style="width:100%">
+        <svg viewBox="0 0 16 16" fill="currentColor" style="width:12px;height:12px;color:var(--t3);flex-shrink:0"><path d="M11.4 10A5.5 5.5 0 102.6 2.6a5.5 5.5 0 008.8 7.4l3.3 3.3 1.4-1.4-3.3-3.3zm-5-.4a3.5 3.5 0 113.5-3.5A3.5 3.5 0 016.4 9.6z"/></svg>
+        <input type="text" id="pip-search" placeholder="Buscar macros…" oninput="renderPiPList()" style="font-size:12px">
+      </div>
+    </div>
+    <div id="pip-list" style="flex:1;overflow-y:auto;padding:6px"></div>
+  </div>
+</div>
+
+<!-- MODAL -->
+<div class="overlay" id="overlay" onclick="if(event.target===this)closeM()">
+  <div class="modal" id="modal-c"></div>
+</div>
+
+<!-- CHANGE PASSWORD -->
+<div id="chpass-overlay">
+  <div class="modal" style="max-width:400px">
+    <div class="mh"><div><h3 class="mh-title">Bienvenido/a 👋</h3><div style="font-size:12px;color:var(--t2);margin-top:2px">Elegí tu contraseña personal antes de continuar</div></div></div>
+    <div class="mb">
+      <div class="fg"><label>Nueva contraseña</label><input class="fi" id="cp-new" type="password" placeholder="Mínimo 6 caracteres" oninput="checkPassMatch()"></div>
+      <div class="fg"><label>Confirmar contraseña</label><input class="fi" id="cp-confirm" type="password" placeholder="Repetí la contraseña" oninput="checkPassMatch()"></div>
+      <div id="cp-err" style="font-size:12px;color:var(--red);display:none;margin-top:-5px">Las contraseñas no coinciden</div>
+      <div id="cp-weak" style="font-size:12px;color:var(--amb);display:none;margin-top:-5px">Mínimo 6 caracteres</div>
+    </div>
+    <div class="mf">
+      <button class="btn btn-secondary" onclick="skipPassChange()">Ahora no</button>
+      <button class="btn btn-primary" id="cp-save-btn" onclick="saveNewPass()">Guardar contraseña</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+// CONFIG
+// ════════════════════════════════════════
+const SB_URL='https://eeooeuamhykqhcivzdip.supabase.co';
+const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVlb29ldWFtaHlrcWhjaXZ6ZGlwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYwOTYxMjQsImV4cCI6MjA5MTY3MjEyNH0.aLPo9oyK9FxQpriIfR3edC4zxBLJZvE9hgS-6sd3q1g';
+const SB_H={'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'return=representation'};
+const SESSION_KEY='cx_session';
+let SB_CONNECTED=false;
+
+const CATS=['Bloqueos','Aperturas','Onboarding','Retiros','Suscripciones','Seguimiento','Reclamos','Consultas','Transferencias','Inversiones y Mercado','Límites y Tarjeta','Documentación','Cierre de cuenta','Cambio de datos','Otros'];
+
+// ── Roles del sistema ─────────────────
+// admin     → gestión de usuarios + todo (puede cambiar a cualquier modo)
+// calidad   → aprobación + analytics
+// usuario   → crea y usa macros
+// superusuario → tiene los tres
+const ROLES_MAP = {
+  admin:        ['usuario','calidad','admin'],
+  calidad:      ['usuario','calidad'],
+  agente:       ['usuario'],
+  usuario:      ['usuario'],
+  superusuario: ['usuario','calidad','admin'],
+};
+
+let TPL=[], USERS=[], CU=null;
+let F='mine', actCat=null, actTag=null, selId=null;
+let settingsOpen=false, currentSpTab='analytics', importPreview=[];
+let CURRENT_MODE='usuario'; // 'usuario' | 'calidad' | 'admin'
+let USER_ROLES=[]; // roles disponibles para el usuario actual
+
+// ════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',async()=>{
+  initTheme();
+  if(document.referrer.includes('panel-cx')||localStorage.getItem('cx_came_from_panel')){
+    document.getElementById('back-to-panel').style.display='block';
+  }
+  try{ await loadUsers(); }catch(e){ console.warn('loadUsers err',e); }
+  const sess=loadSharedSession();
+  if(sess) loginSuccess(sess);
+});
+
+// ════════════════════════════════════════
+// SESSION
+// ════════════════════════════════════════
+function saveSharedSession(u){
+  localStorage.setItem(SESSION_KEY,JSON.stringify({id:u.id,email:u.email,name:u.name,username:u.username||'',role:u.role,av:u.av||u.name.slice(0,2).toUpperCase(),active:u.active,passChanged:u.passChanged||false,ts:Date.now()}));
+}
+function loadSharedSession(){
+  try{const raw=localStorage.getItem(SESSION_KEY);if(!raw)return null;const d=JSON.parse(raw);if(Date.now()-d.ts>8*60*60*1000){localStorage.removeItem(SESSION_KEY);return null;}return d;}catch(e){return null;}
+}
+function clearSharedSession(){ localStorage.removeItem(SESSION_KEY); }
+
+// ════════════════════════════════════════
+// SUPABASE UTILS
+// ════════════════════════════════════════
+async function sbFetch(path,opts={}){
+  const{headers:eh,...rest}=opts;
+  const r=await fetch(SB_URL+'/rest/v1/'+path,{...rest,headers:{...SB_H,...(eh||{})}});
+  if(!r.ok){console.warn('sbFetch',path,r.status);return null;}
+  const t=await r.text();return t?JSON.parse(t):null;
+}
+async function sbSave(t){
+  const p={
+    id:t.id,user_id:CU.id,title:t.title,body:t.body||'',
+    category:t.cat,tags:t.tags||[],status:t.status||'aprobada',
+    visibility:t.visibility||'private',uses:t.uses||0,
+    rating:t.rating||0,rating_cnt:t.ratingCnt||0,
+    is_favorite:t.fav||false,comments:t.comments||[],
+    created_at:t.created||today(),updated_at:t.edited||today(),
+    aprobada_por_calidad:t.aprobada_por_calidad||false,
+    aprobada_por:t.aprobada_por||'',
+    fecha_aprobacion:t.fecha_aprobacion||null,
+    estado_calidad:t.estado_calidad||'pendiente',
+    motivo_rechazo:t.motivo_rechazo||''
+  };
+  await sbFetch('macros',{method:'POST',headers:{'Prefer':'resolution=merge-duplicates'},body:JSON.stringify(p)});
+}
+async function sbDelete(id){await sbFetch('macros?id=eq.'+id,{method:'DELETE'});}
+
+// ════════════════════════════════════════
+// AUTH
+// ════════════════════════════════════════
+async function loadUsers(){
+  const local=JSON.parse(localStorage.getItem('m4_users')||'null');
+  if(local&&local.length) USERS=local;
+  try{
+    const r=await fetch(SB_URL+'/rest/v1/users?select=*&order=created_at.asc',{headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY}});
+    if(r.ok){
+      const d=await r.json();
+      if(d&&d.length){USERS=d.map(u=>({...u,passChanged:u.pass_changed}));localStorage.setItem('m4_users',JSON.stringify(USERS));return;}
+      if(USERS.length){await saveUsersToSB();return;}
+    }
+  }catch(e){}
+  if(!USERS.length) USERS=[{id:'u1',email:'mirdiaz@cocos.capital',pass:'cocos2024',name:'Mir Díaz',username:'mirdiaz',role:'admin',active:true,av:'MD',passChanged:true}];
+}
+
+async function doLogin(){
+  const input=document.getElementById('li-e').value.trim();
+  const pass=document.getElementById('li-p').value.trim();
+  const err=document.getElementById('auth-err');
+  const btn=document.querySelector('.btn-login');
+  err.style.display='none';
+  if(!input||!pass){err.textContent='Completá usuario y contraseña';err.style.display='block';return;}
+  if(!USERS.length){btn.textContent='Cargando...';btn.disabled=true;await loadUsers();btn.textContent='Continuar →';btn.disabled=false;}
+  const u=USERS.find(x=>x.active&&x.pass===pass&&(x.email.toLowerCase()===input.toLowerCase()||(x.username&&x.username.toLowerCase()===input.toLowerCase())));
+  if(!u){err.textContent='Credenciales incorrectas';err.style.display='block';return;}
+  SB_CONNECTED=true;
+  saveSharedSession(u);
+  loginSuccess(u);
+}
+
+function loginSuccess(u){
+  CU=u;
+  document.getElementById('auth').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('u-av').textContent=u.av||u.name.slice(0,2).toUpperCase();
+  document.getElementById('u-name').textContent=u.name.split(' ')[0];
+  SB_CONNECTED=true;
+
+  // Determinar roles disponibles
+  USER_ROLES=ROLES_MAP[u.role]||['usuario'];
+  setupModeSwitcher();
+
+  document.getElementById('db-status-badge').innerHTML=`<div class="sb-status conn" style="font-size:11px;padding:4px 9px"><div class="status-dot" style="background:var(--grn)"></div>Supabase</div>`;
+
+  // DB tab always visible
+  document.getElementById('tab-db').style.display='';
+
+  loadTPL();
+  initPiPDrag();
+  cxNotifBadge();
+  if(!u.passChanged) setTimeout(()=>document.getElementById('chpass-overlay').classList.add('on'),600);
+}
+
+// ════════════════════════════════════════
+// ROLE / MODE SYSTEM
+// ════════════════════════════════════════
+function setupModeSwitcher(){
+  const sw=document.getElementById('mode-switcher');
+  // Only show switcher if user has calidad role too
+  if(USER_ROLES.includes('calidad')){
+    sw.style.display='flex';
+    document.getElementById('mb-calidad').style.display='';
+  }
+  // Always start in usuario mode
+  setMode('usuario',false);
+}
+
+function setMode(mode, reloadTPL=true){
+  CURRENT_MODE=mode;
+  ['usuario','calidad'].forEach(m=>{
+    const btn=document.getElementById('mb-'+m);
+    if(btn) btn.classList.toggle('active',m===mode);
+  });
+  document.getElementById('view-usuario').classList.toggle('on', mode==='usuario');
+  document.getElementById('view-qa').classList.toggle('on', mode==='calidad');
+  const lbl={usuario:'Agente',calidad:'Calidad'};
+  document.getElementById('u-role').textContent=lbl[mode]||'Agente';
+  if(mode==='calidad' && reloadTPL){ renderQATable(); loadQAStats(); populateQAFilters(); }
+  if(mode==='usuario' && reloadTPL) draw();
+}
+
+// ════════════════════════════════════════
+// TEMPLATES
+// ════════════════════════════════════════
+async function loadTPL(){
+  try{
+    const d=await sbFetch('macros?select=*&order=updated_at.desc');
+    if(d&&d.length>=0){
+      TPL=d.map(r=>({
+        id:r.id,title:r.title,body:r.body||'',cat:r.category||'Otros',
+        tags:r.tags||[],status:r.status||'aprobada',
+        visibility:r.visibility||'private',uses:r.uses||0,
+        rating:r.rating||0,ratingCnt:r.rating_cnt||0,
+        fav:r.is_favorite||false,comments:r.comments||[],
+        created:r.created_at?.split('T')[0]||today(),
+        edited:r.updated_at?.split('T')[0]||today(),
+        createdBy:r.user_id,versions:[],
+        aprobada_por_calidad:r.aprobada_por_calidad||false,
+        aprobada_por:r.aprobada_por||'',
+        fecha_aprobacion:r.fecha_aprobacion||null,
+        estado_calidad:r.estado_calidad||'pendiente',
+        motivo_rechazo:r.motivo_rechazo||''
+      }));
+      save();draw();
+      if(CURRENT_MODE==='calidad') renderQATable(), loadQAStats();
+      return;
+    }
+  }catch(e){console.warn('loadTPL SB err:',e);}
+  TPL=JSON.parse(localStorage.getItem('m4_tpl')||'[]');draw();
+}
+function save(){localStorage.setItem('m4_tpl',JSON.stringify(TPL));}
+function getVisTPL(){return TPL.filter(t=>t.visibility==='shared'||t.createdBy===CU?.id);}
+function stripHTML(s){return(s||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();}
+function getVars(html){return[...new Set([...((html||'').matchAll(/\{([^}]+)\}/g))].map(x=>x[1]))];}
+
+// ════════════════════════════════════════
+// DRAW (usuario view)
+// ════════════════════════════════════════
+function draw(){
+  const q=(document.getElementById('q')?.value||'').toLowerCase();
+  const sort=document.getElementById('sort')?.value||'new';
+  let list=getVisTPL();
+  if(F==='mine')list=list.filter(t=>t.createdBy===CU?.id);
+  else if(F==='shared')list=list.filter(t=>t.visibility==='shared'&&t.estado_calidad==='aprobada'); // Oficiales = compartidas + aprobadas
+  else if(F==='fav')list=list.filter(t=>t.fav);
+  if(actCat)list=list.filter(t=>t.cat===actCat);
+  if(q)list=list.filter(t=>t.title.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||stripHTML(t.body).toLowerCase().includes(q));
+  if(sort==='use')list.sort((a,b)=>b.uses-a.uses);
+  else if(sort==='az')list.sort((a,b)=>a.title.localeCompare(b.title));
+  else list.sort((a,b)=>new Date(b.edited||0)-new Date(a.edited||0));
+
+  const mine=TPL.filter(t=>t.createdBy===CU?.id);
+  const oficiales=getVisTPL().filter(t=>t.visibility==='shared'&&t.estado_calidad==='aprobada');
+  const favs=getVisTPL().filter(t=>t.fav);
+  document.getElementById('cnt-mine').textContent=mine.length;
+  document.getElementById('cnt-shared').textContent=oficiales.length;
+  document.getElementById('cnt-fav').textContent=favs.length;
+
+  // Sidebar cats — only categories, no tags
+  const catsCount=[...new Set(TPL.filter(t=>t.createdBy===CU?.id).map(t=>t.cat))].sort();
+  const sbCats=document.getElementById('sb-cats');
+  if(sbCats)sbCats.innerHTML=catsCount.map(c=>`<div class="sb-item${actCat===c?' on':''}" onclick="setActCat('${c}')"><div class="sbi-l"><div class="sdot cd-${c.toLowerCase().replace(/\s/g,'-').replace(/[^a-z-]/g,'')}"></div>${c}</div><span class="sb-count">${TPL.filter(t=>t.createdBy===CU?.id&&t.cat===c).length}</span></div>`).join('');
+
+  const title=F==='mine'?'Mis macros':F==='shared'?'Oficiales':F==='fav'?'Favoritas':actCat||'Macros';
+  const cbt=document.getElementById('cbar-title');if(cbt)cbt.textContent=title;
+  const cbs=document.getElementById('cbar-sub');if(cbs)cbs.textContent=`${list.length} macro${list.length!==1?'s':''}`;
+
+  const grid=document.getElementById('grid');if(!grid)return;
+  if(!list.length){
+    const emptyMsg=F==='mine'?'Creá tu primera macro con el botón +':F==='shared'?'Aún no hay macros aprobadas por Calidad':'Cambiá los filtros';
+    grid.innerHTML=`<div class="empty"><div class="empty-ico">${F==='shared'?'✅':'📋'}</div><div class="empty-t">Sin macros${q?` para "${q}"`:''}</div><div class="empty-s">${emptyMsg}</div></div>`;
+    return;
+  }
+
+  grid.innerHTML=list.map((t,i)=>{
+    const ccl='cg-'+t.cat.toLowerCase().replace(/\s/g,'-').replace(/[^a-z-]/g,'');
+    const plain=stripHTML(t.body);
+
+    // QA indicator — en vista usuario: SOLO mostrar check verde si está aprobada
+    // Si no está aprobada (pendiente o rechazada), no mostrar nada
+    let qaEl='';
+    if(t.estado_calidad==='aprobada'){
+      qaEl=`<div class="verified-mark" title="Verificada por Calidad · ${esc(t.aprobada_por||'')}"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/></svg></div>`;
+    }
+    // pendiente y rechazada: qaEl queda vacío — sin indicador visible
+
+    return `<div class="mac-card${selId===t.id?' sel':''}" onclick="openDetail('${t.id}')" style="animation-delay:${Math.min(i,12)*0.025}s">
+      <div class="mac-card-top">
+        <div style="flex:1;min-width:0">
+          <div class="mac-cat-row">
+            <div class="sdot cd-${t.cat.toLowerCase().replace(/\s/g,'-').replace(/[^a-z-]/g,'')}"></div>
+            <span class="${ccl}" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em">${t.cat}</span>
+          </div>
+          <div class="mac-title">${esc(t.title)}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px;flex-shrink:0;margin-left:6px">
+          ${qaEl}
+          <button class="mac-fav${t.fav?' on':''}" onclick="event.stopPropagation();toggleFav('${t.id}')">${t.fav?'★':'☆'}</button>
+        </div>
+      </div>
+      <div class="mac-preview">${plain||'Sin contenido'}</div>
+      <div class="mac-footer">
+        <span class="mac-uses">${t.uses} uso${t.uses!==1?'s':''}</span>
+        <div class="mac-actions">
+          <button class="mac-pip-btn" onclick="event.stopPropagation();openPiP('${t.id}')" title="Flotar macro">↗</button>
+          <button class="btn btn-primary btn-xs" onclick="event.stopPropagation();copyMacro('${t.id}')">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2h8v2H4zm-2 2h12v11H2V4zm2 2v7h8V6H4z"/></svg>Copiar
+          </button>
+          ${t.createdBy===CU?.id?`<button class="btn btn-secondary btn-xs" onclick="event.stopPropagation();openM('edit','${t.id}')">Editar</button>`:''}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function setF(f){F=f;actCat=null;document.querySelectorAll('.sb-item').forEach(i=>i.classList.remove('on'));document.getElementById('sf-'+f)?.classList.add('on');draw();}
+function setActCat(c){actCat=actCat===c?null:c;F=null;draw();}
+function toggleFav(id){const t=TPL.find(t=>t.id==id);if(!t)return;t.fav=!t.fav;save();if(SB_CONNECTED)sbSave(t);draw();if(selId==id)renderDetail();}
+
+async function copyMacro(id){
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  const plain=t.body.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  const full='<!DOCTYPE html><html><body>'+t.body+'</body></html>';
+  try{await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([full],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);}
+  catch(e){try{await navigator.clipboard.writeText(plain);}catch(e2){}}
+  t.uses++;save();if(SB_CONNECTED)sbSave(t);draw();
+  toast('Copiado para Intercom ✓','ok');
+}
+
+// ════════════════════════════════════════
+// DETAIL PANEL
+// ════════════════════════════════════════
+function openDetail(id){selId=id;if(settingsOpen)toggleSettings();document.getElementById('detail').classList.remove('closed');renderDetail();draw();}
+function closeDetail(){selId=null;document.getElementById('detail').classList.add('closed');draw();}
+
+function renderDetail(){
+  const t=TPL.find(t=>t.id==selId);if(!t)return;
+  const isOwn=t.createdBy===CU?.id;
+  const canQA=USER_ROLES.includes('calidad')||USER_ROLES.includes('admin');
+  const qaBtn=canQA?`<div style="display:flex;gap:5px">
+    <button class="btn btn-success btn-xs" onclick="approveOne('${t.id}')">✓ Aprobar</button>
+    <button class="btn btn-danger btn-xs" onclick="rejectOne('${t.id}')">✕ Rechazar</button>
+  </div>`:'';
+  const s=document.getElementById('dp-scroll');
+  s.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:13px;flex-wrap:wrap">
+      ${t.estado_calidad==='aprobada'?`<span class="qa-badge qa-approved"><svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/></svg>Verificada</span>`:t.estado_calidad==='rechazada'?`<span class="qa-badge qa-rejected reject-tooltip" data-tip="${esc(t.motivo_rechazo||'Sin motivo')}">✕ Rechazada</span>`:`<span class="qa-badge qa-pending">● Pendiente</span>`}
+      ${isOwn?`<button class="btn btn-secondary btn-xs" onclick="toggleVis('${t.id}')" style="${t.visibility==='shared'?'color:var(--grn);border-color:rgba(0,191,140,.3)':''}">
+        ${t.visibility==='shared'?'🔓 Compartida':'🔒 Privada'}
+      </button>`:''}
+      <div style="margin-left:auto;display:flex;gap:5px">
+        ${isOwn?`<button class="btn btn-secondary btn-xs" onclick="openM('edit','${t.id}')">Editar</button>`:''}
+        ${qaBtn}
+      </div>
+    </div>
+    ${t.estado_calidad==='rechazada'&&t.motivo_rechazo?`<div style="background:rgba(240,92,92,.07);border:1px solid rgba(240,92,92,.2);border-radius:var(--r-sm);padding:9px 13px;margin-bottom:12px;font-size:12px;color:var(--red);line-height:1.6"><strong>Motivo de rechazo:</strong> ${esc(t.motivo_rechazo)}</div>`:''}
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:3px">${t.cat}</div>
+    <h3 class="dp-title">${esc(t.title)}</h3>
+    <div class="dp-meta">
+      <span>${t.uses} usos</span>·<span>${t.edited||today()}</span>
+      ${t.aprobada_por?`·<span style="color:var(--grn)">✓ ${esc(t.aprobada_por)}</span>`:''}
+    </div>
+    <div class="dp-sec">Vista previa</div>
+    <div class="dp-body">${t.body||''}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+      <button class="btn btn-primary btn-xs" onclick="copyMacro('${t.id}')">
+        <svg viewBox="0 0 16 16" fill="currentColor"><path d="M4 2h8v2H4zm-2 2h12v11H2V4zm2 2v7h8V6H4z"/></svg>Copiar
+      </button>
+      <button class="btn btn-secondary btn-xs" onclick="openPiP('${t.id}')">↗ Flotar</button>
+      <button class="btn btn-secondary btn-xs" onclick="shareLink('${t.id}')">Link</button>
+    </div>
+    <div class="dp-sec">Comentarios (${(t.comments||[]).filter(c=>!c.qa).length})</div>
+    ${(t.comments||[]).filter(c=>!c.qa).map(c=>`<div class="cmt"><div class="cmt-h"><div class="cmt-av">${c.av||c.user.slice(0,2).toUpperCase()}</div><span class="cmt-user">${c.user}</span><span class="cmt-date">${c.date}</span></div><div class="cmt-body">${c.text}</div></div>`).join('')}
+    <div class="cmt-row">
+      <textarea class="cmt-inp" id="cmt-inp" rows="2" placeholder="Agregar comentario…"></textarea>
+      <button class="btn btn-primary btn-xs" style="align-self:flex-end" onclick="addCmt('${t.id}')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M1 1l14 7L1 15V9.5l10-1.5L1 6.5z"/></svg></button>
+    </div>`;
+}
+
+function toggleVis(id){const t=TPL.find(t=>t.id==id);if(!t||t.createdBy!==CU?.id)return;t.visibility=t.visibility==='shared'?'private':'shared';save();if(SB_CONNECTED)sbSave(t);renderDetail();draw();toast(t.visibility==='shared'?'Compartida con el equipo ✓':'Ahora privada','ok');}
+function addCmt(id){
+  const t=TPL.find(t=>t.id==id);
+  const text=document.getElementById('cmt-inp')?.value?.trim();
+  if(!t||!text)return;
+  t.comments=t.comments||[];
+  t.comments.push({user:CU.name,av:CU.av||CU.name.slice(0,2).toUpperCase(),text,date:today()});
+  save();if(SB_CONNECTED)sbSave(t);renderDetail();
+  // Notify author if different user
+  const author=USERS.find(u=>u.id===t.createdBy);
+  if(author&&author.email!==CU.email){
+    cxNotifPush({toUser:author.email,fromUser:CU.name,macroId:t.id,appLabel:'Macros · '+t.title,preview:text.substring(0,80),ts:new Date().toISOString()});
+  }
+}
+function shareLink(id){const t=TPL.find(t=>t.id==id);if(!t)return;navigator.clipboard.writeText(location.href.split('?')[0]+'?p='+btoa(encodeURIComponent(JSON.stringify({title:t.title,cat:t.cat,body:t.body,tags:t.tags})))).then(()=>toast('Link copiado','in'));}
+
+// ════════════════════════════════════════
+// QA SYSTEM
+// ════════════════════════════════════════
+function canApprove(){return USER_ROLES.includes('calidad')||USER_ROLES.includes('admin');}
+let _rejectId=null; // id pending rejection
+
+// ── sbSave must store motivo_rechazo ──
+// (already handled in sbSave via t.motivo_rechazo field)
+
+async function approveOne(id){
+  if(!canApprove()){toast('Sin permisos de calidad','er');return;}
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  t.estado_calidad='aprobada';
+  t.aprobada_por_calidad=true;
+  t.aprobada_por=CU.name;
+  t.fecha_aprobacion=new Date().toISOString();
+  t.motivo_rechazo='';
+  save();await sbSave(t);
+  renderDetail();draw();
+  if(CURRENT_MODE==='calidad'){renderQATable();loadQAStats();}
+  toast(`"${t.title}" aprobada ✓`,'ok');
+  // Notify author
+  const author=USERS.find(u=>u.id===t.createdBy);
+  if(author&&author.email!==CU.email){
+    cxNotifPush({toUser:author.email,fromUser:CU.name,macroId:t.id,appLabel:'Macros · '+t.title,preview:`Tu macro fue aprobada por ${CU.name}`,ts:new Date().toISOString()});
+  }
+}
+
+function openRejectModal(id){
+  _rejectId=id;
+  document.getElementById('reject-reason').value='';
+  document.getElementById('overlay-reject').classList.add('on');
+  setTimeout(()=>document.getElementById('reject-reason').focus(),60);
+}
+function closeRejectModal(){
+  document.getElementById('overlay-reject').classList.remove('on');
+  _rejectId=null;
+}
+async function confirmReject(){
+  if(!_rejectId)return;
+  if(!canApprove()){toast('Sin permisos de calidad','er');return;}
+  const reason=document.getElementById('reject-reason').value.trim();
+  if(!reason){toast('Escribí un motivo','er');return;}
+  const t=TPL.find(t=>t.id==_rejectId);if(!t)return;
+  t.estado_calidad='rechazada';
+  t.aprobada_por_calidad=false;
+  t.aprobada_por='';
+  t.fecha_aprobacion=null;
+  t.motivo_rechazo=reason;
+  save();await sbSave(t);
+  closeRejectModal();
+  renderDetail();draw();
+  if(CURRENT_MODE==='calidad'){renderQATable();loadQAStats();}
+  toast(`Rechazada con motivo`,'er');
+  // Notify author
+  const author=USERS.find(u=>u.id===t.createdBy);
+  if(author&&author.email!==CU.email){
+    cxNotifPush({toUser:author.email,fromUser:CU.name,macroId:t.id,appLabel:'Macros · '+t.title,preview:`Rechazada — ${reason.substring(0,80)}`,ts:new Date().toISOString()});
+  }
+}
+
+// kept for backward compat (detail panel uses it)
+async function rejectOne(id){openRejectModal(id);}
+
+async function approveAll(){
+  if(!canApprove()){toast('Sin permisos de calidad','er');return;}
+  const visible=getFilteredQA();
+  if(!visible.length){toast('Sin macros para aprobar','er');return;}
+  let count=0;
+  for(const t of visible){
+    if(t.estado_calidad!=='aprobada'){
+      t.estado_calidad='aprobada';t.aprobada_por_calidad=true;t.aprobada_por=CU.name;t.fecha_aprobacion=new Date().toISOString();t.motivo_rechazo='';
+      await sbSave(t);count++;
+    }
+  }
+  save();renderQATable();loadQAStats();draw();
+  toast(`${count} macro${count!==1?'s':''} aprobada${count!==1?'s':''} ✓`,'ok');
+}
+
+function getFilteredQA(){
+  const q=(document.getElementById('qa-q')?.value||'').toLowerCase();
+  const estado=document.getElementById('qa-filter-estado')?.value||'';
+  const autor=document.getElementById('qa-filter-autor')?.value||'';
+  const cat=document.getElementById('qa-filter-cat')?.value||'';
+  const tipo=document.getElementById('qa-filter-tipo')?.value||'';
+  const dias=parseInt(document.getElementById('qa-filter-fecha')?.value||'0');
+  const sortBy=document.getElementById('qa-sort')?.value||'estado';
+  const now=new Date();
+
+  let list=TPL.filter(t=>{
+    if(estado&&t.estado_calidad!==estado)return false;
+    if(autor&&t.createdBy!==autor)return false;
+    if(cat&&t.cat!==cat)return false;
+    if(tipo&&t.visibility!==tipo)return false;
+    if(dias){const d=new Date(t.created);if((now-d)/86400000>dias)return false;}
+    if(q&&!t.title.toLowerCase().includes(q)&&!t.cat.toLowerCase().includes(q)&&!stripHTML(t.body).toLowerCase().includes(q))return false;
+    return true;
+  });
+
+  // Sort
+  if(sortBy==='estado'){const o={pendiente:0,rechazada:1,aprobada:2};list.sort((a,b)=>(o[a.estado_calidad]||0)-(o[b.estado_calidad]||0));}
+  else if(sortBy==='fecha_creacion')list.sort((a,b)=>new Date(b.created)-new Date(a.created));
+  else if(sortBy==='fecha_mod')list.sort((a,b)=>new Date(b.edited)-new Date(a.edited));
+  else if(sortBy==='usos')list.sort((a,b)=>b.uses-a.uses);
+  else if(sortBy==='autor')list.sort((a,b)=>(autorName(a.createdBy)).localeCompare(autorName(b.createdBy)));
+
+  return list;
+}
+
+function autorName(id){return USERS.find(u=>u.id===id)?.name||'—';}
+
+function renderQATable(){
+  const tb=document.getElementById('qa-tbody');if(!tb)return;
+  const list=getFilteredQA();
+  const cb=document.getElementById('qa-count-bar');
+  if(cb)cb.textContent=`${list.length} macro${list.length!==1?'s':''} · Pendientes: ${list.filter(t=>t.estado_calidad==='pendiente'||!t.estado_calidad).length}`;
+  if(!list.length){tb.innerHTML=`<tr><td colspan="7" style="text-align:center;padding:40px;color:var(--t3)">Sin macros para los filtros seleccionados</td></tr>`;return;}
+  tb.innerHTML=list.map(t=>`<tr>
+    <td>
+      <div style="font-size:13px;font-weight:600;color:var(--t0);margin-bottom:2px">${esc(t.title)}</div>
+      <div style="font-size:11px;color:var(--t3)">${t.uses} uso${t.uses!==1?'s':''} · ${t.visibility==='shared'?'Compartida':'Privada'}</div>
+    </td>
+    <td><span style="font-size:11px;color:var(--t2)">${t.cat}</span></td>
+    <td style="font-size:12px;color:var(--t2)">${autorName(t.createdBy)}</td>
+    <td style="font-size:11px;color:var(--t3);white-space:nowrap">${fmtDateShort(t.created)}</td>
+    <td>${renderQABadge(t.estado_calidad,t.motivo_rechazo)}</td>
+    <td style="font-size:11px;color:var(--t3)">
+      ${t.aprobada_por?`<span style="color:var(--grn);font-weight:500">${esc(t.aprobada_por)}</span><br><span>${fmtDateShort(t.fecha_aprobacion)}</span>`:'—'}
+    </td>
+    <td>
+      <div style="display:flex;gap:4px;align-items:center">
+        <button class="btn btn-secondary btn-xs" onclick="openQAReview('${t.id}')">Revisar</button>
+        <button class="btn btn-success btn-xs" onclick="approveOne('${t.id}')" ${t.estado_calidad==='aprobada'?'disabled style="opacity:.35;cursor:default"':''} title="Aprobar">✓</button>
+        <button class="btn btn-danger btn-xs" onclick="openRejectModal('${t.id}')" ${t.estado_calidad==='rechazada'?'disabled style="opacity:.35;cursor:default"':''} title="Rechazar">✕</button>
+      </div>
+    </td>
+  </tr>`).join('');
+}
+
+function renderQABadge(estado, motivo){
+  if(estado==='aprobada') return`<span class="qa-badge qa-approved"><svg width="9" height="9" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/></svg>Aprobada</span>`;
+  if(estado==='rechazada'){
+    const tip=esc(motivo||'Sin motivo');
+    return`<span class="qa-badge qa-rejected reject-tooltip" data-tip="${tip}">✕ Rechazada</span>`;
+  }
+  return`<span class="qa-badge qa-pending">● Pendiente</span>`;
+}
+
+function fmtDateShort(d){
+  if(!d)return'—';
+  try{return new Date(d).toLocaleDateString('es-AR',{day:'2-digit',month:'short'});}catch(e){return d;}
+}
+
+function loadQAStats(){
+  const now=new Date();
+  const d7=new Date(now-7*86400000);
+  const aprobadas=TPL.filter(t=>t.estado_calidad==='aprobada');
+  const pendientes=TPL.filter(t=>t.estado_calidad==='pendiente'||!t.estado_calidad);
+  const rechazadas=TPL.filter(t=>t.estado_calidad==='rechazada');
+  const ap7=aprobadas.filter(t=>t.fecha_aprobacion&&new Date(t.fecha_aprobacion)>d7).length;
+  const sinAprobar=TPL.filter(t=>t.estado_calidad!=='aprobada').sort((a,b)=>b.uses-a.uses);
+
+  document.getElementById('qs-aprobadas').textContent=aprobadas.length;
+  document.getElementById('qs-ap7').textContent=ap7;
+  document.getElementById('qs-pendientes').textContent=pendientes.length;
+  document.getElementById('qs-rechazadas').textContent=rechazadas.length;
+  document.getElementById('qs-total').textContent=TPL.length;
+  document.getElementById('qs-sinAprobar').textContent=sinAprobar[0]?.uses??'—';
+
+  // Top 5 authors with most pending
+  const byAutor={};
+  pendientes.forEach(t=>{const n=autorName(t.createdBy);byAutor[n]=(byAutor[n]||0)+1;});
+  const topAuth=Object.entries(byAutor).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const authEl=document.getElementById('qa-top-authors');
+  if(authEl)authEl.innerHTML=topAuth.length
+    ?topAuth.map(([n,c])=>`<div class="qa-mini-row"><div class="qa-mini-av">${n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}</div><span class="qa-mini-name">${esc(n)}</span><span class="qa-mini-count">${c} pend.</span></div>`).join('')
+    :`<div style="padding:14px 16px;font-size:12px;color:var(--t3)">Sin pendientes ✓</div>`;
+
+  // Top unapproved by uses
+  const unappEl=document.getElementById('qa-top-unapproved');
+  if(unappEl)unappEl.innerHTML=sinAprobar.slice(0,5).length
+    ?sinAprobar.slice(0,5).map(t=>`<div class="qa-mini-row"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:500;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.title)}</div><div style="font-size:10px;color:var(--t3)">${t.cat}</div></div><span class="qa-mini-count">${t.uses} usos</span></div>`).join('')
+    :`<div style="padding:14px 16px;font-size:12px;color:var(--t3)">Sin macros sin aprobar ✓</div>`;
+}
+
+function populateQAFilters(){
+  // Categories
+  const sc=document.getElementById('qa-filter-cat');
+  if(sc){const cats=[...new Set(TPL.map(t=>t.cat))].sort();const fo=sc.options[0];sc.innerHTML='';sc.appendChild(fo);cats.forEach(c=>{const o=document.createElement('option');o.value=c;o.textContent=c;sc.appendChild(o);});}
+  // Authors
+  const sa=document.getElementById('qa-filter-autor');
+  if(sa){const authors=[...new Set(TPL.map(t=>t.createdBy))].map(id=>({id,name:autorName(id)})).sort((a,b)=>a.name.localeCompare(b.name));const fo=sa.options[0];sa.innerHTML='';sa.appendChild(fo);authors.forEach(a=>{const o=document.createElement('option');o.value=a.id;o.textContent=a.name;sa.appendChild(o);});}
+}
+
+// ── QA Review modal ──────────────────
+function openQAReview(id){
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  const plain=stripHTML(t.body);
+  const body=document.getElementById('qar-body');
+  const footer=document.getElementById('qar-footer');
+  document.getElementById('qar-title').textContent=t.title;
+
+  // Build approval history from comments tagged as qa
+  const qaHistory=(t.comments||[]).filter(c=>c.qa);
+  const historyHTML=qaHistory.length
+    ?`<div style="margin-top:16px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px">Historial de revisiones</div>${qaHistory.map(c=>`<div style="display:flex;gap:10px;padding:8px 12px;background:var(--bg);border:1px solid var(--b0);border-radius:var(--r-sm);margin-bottom:6px"><div><div style="font-size:11px;font-weight:600;color:var(--t0)">${esc(c.user)} <span style="color:${c.action==='aprobó'?'var(--grn)':'var(--red)'}">${c.action}</span></div><div style="font-size:11px;color:var(--t3)">${c.date}</div></div>${c.text?`<div style="flex:1;font-size:12px;color:var(--t2);line-height:1.5">${esc(c.text)}</div>`:''}</div>`).join('')}</div>`
+    :'';
+
+  body.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      ${renderQABadge(t.estado_calidad,t.motivo_rechazo)}
+      <span style="font-size:11px;color:var(--t3)">${t.cat} · ${autorName(t.createdBy)} · ${t.uses} usos</span>
+      ${t.aprobada_por?`<span style="font-size:11px;color:var(--grn)">✓ ${esc(t.aprobada_por)} · ${fmtDateShort(t.fecha_aprobacion)}</span>`:''}
+    </div>
+    ${t.motivo_rechazo?`<div style="background:rgba(240,92,92,.07);border:1px solid rgba(240,92,92,.2);border-radius:var(--r-sm);padding:10px 13px;margin-bottom:12px;font-size:12px;color:var(--red);line-height:1.6"><strong>Motivo de rechazo:</strong> ${esc(t.motivo_rechazo)}</div>`:''}
+    <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:8px">Contenido completo</div>
+    <div style="background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:16px;font-size:13px;color:var(--t1);line-height:1.75;max-height:280px;overflow-y:auto">${t.body||'Sin contenido'}</div>
+    <div style="margin-top:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--t3);margin-bottom:7px">Comentario de revisión (opcional)</div>
+      <textarea class="fi" id="qar-comment" rows="2" placeholder="Dejá una nota para el autor…" style="resize:vertical"></textarea>
+    </div>
+    ${historyHTML}`;
+
+  footer.innerHTML=`
+    <button class="btn btn-secondary" onclick="closeQAReview()">Cerrar</button>
+    <button class="btn btn-danger" onclick="rejectFromReview('${t.id}')" ${t.estado_calidad==='rechazada'?'disabled style="opacity:.4"':''}>
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M4.646 4.646a.5.5 0 01.708 0L8 7.293l2.646-2.647a.5.5 0 01.708.708L8.707 8l2.647 2.646a.5.5 0 01-.708.708L8 8.707l-2.646 2.647a.5.5 0 01-.708-.708L7.293 8 4.646 5.354a.5.5 0 010-.708z"/></svg>
+      Rechazar
+    </button>
+    <button class="btn btn-success" style="padding:9px 20px;font-size:13px" onclick="approveFromReview('${t.id}')" ${t.estado_calidad==='aprobada'?'disabled style="opacity:.4"':''}>
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M13.854 3.646a.5.5 0 010 .708l-7 7a.5.5 0 01-.708 0l-3.5-3.5a.5.5 0 11.708-.708L6.5 10.293l6.646-6.647a.5.5 0 01.708 0z"/></svg>
+      Aprobar macro
+    </button>`;
+
+  document.getElementById('overlay-qa-review').classList.add('on');
+}
+
+async function approveFromReview(id){
+  const comment=document.getElementById('qar-comment')?.value?.trim();
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  if(comment){t.comments=t.comments||[];t.comments.push({user:CU.name,av:CU.av||CU.name.slice(0,2).toUpperCase(),text:comment,date:today(),qa:true,action:'aprobó'});}
+  await approveOne(id);
+  closeQAReview();
+}
+async function rejectFromReview(id){
+  closeQAReview();
+  openRejectModal(id);
+}
+function closeQAReview(){document.getElementById('overlay-qa-review').classList.remove('on');}
+
+// Legacy — kept for backward compat
+function populateQACatFilter(){populateQAFilters();}
+
+function setQaTab(tab,btn){
+  document.querySelectorAll('.qa-tab').forEach(t=>t.classList.remove('on'));
+  btn.classList.add('on');
+  document.getElementById('qa-section-approval').style.display=tab==='approval'?'':'none';
+  document.getElementById('qa-section-analytics').style.display=tab==='analytics'?'':'none';
+  if(tab==='analytics')renderAnalyticsQA();
+}
+
+function renderAnalyticsQA(){
+  const el=document.getElementById('analytics-grid');if(!el)return;
+  // Top macros por uso
+  const top10=[...TPL].sort((a,b)=>b.uses-a.uses).slice(0,10);
+  const maxUso=Math.max(...top10.map(t=>t.uses),1);
+  // Top usuarios por creación
+  const byUser={};
+  TPL.forEach(t=>{
+    const n=USERS.find(u=>u.id===t.createdBy)?.name||t.createdBy||'Desconocido';
+    byUser[n]=(byUser[n]||0)+t.uses;
+  });
+  const topUsers=Object.entries(byUser).sort((a,b)=>b[1]-a[1]).slice(0,8);
+  const maxUser=Math.max(...topUsers.map(x=>x[1]),1);
+  // By category
+  const byCat={};CATS.forEach(c=>{byCat[c]=TPL.filter(t=>t.cat===c).reduce((a,t)=>a+t.uses,0);});
+  const topCats=Object.entries(byCat).filter(x=>x[1]>0).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const maxCat=Math.max(...topCats.map(x=>x[1]),1);
+
+  el.innerHTML=`
+  <div class="analytics-card" style="grid-column:span 2">
+    <div class="analytics-card-header"><div class="analytics-card-title">Top 10 macros más usadas</div></div>
+    <div class="analytics-card-body">
+      ${top10.map(t=>`<div class="bar-row">
+        <div class="bar-label" title="${t.title}">${esc(t.title)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(t.uses/maxUso*100).toFixed(0)}%"></div></div>
+        <div class="bar-val">${t.uses}</div>
+      </div>`).join('')||'<p style="font-size:12px;color:var(--t3)">Sin datos aún</p>'}
+    </div>
+  </div>
+  <div class="analytics-card">
+    <div class="analytics-card-header"><div class="analytics-card-title">Ranking por agente (usos totales)</div></div>
+    <div class="analytics-card-body">
+      ${topUsers.map(([n,v])=>`<div class="bar-row">
+        <div class="bar-label">${esc(n)}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(v/maxUser*100).toFixed(0)}%;background:var(--vio)"></div></div>
+        <div class="bar-val">${v}</div>
+      </div>`).join('')||'<p style="font-size:12px;color:var(--t3)">Sin datos</p>'}
+    </div>
+  </div>
+  <div class="analytics-card">
+    <div class="analytics-card-header"><div class="analytics-card-title">Usos por categoría</div></div>
+    <div class="analytics-card-body">
+      ${topCats.map(([c,v])=>`<div class="bar-row">
+        <div class="bar-label">${c}</div>
+        <div class="bar-track"><div class="bar-fill" style="width:${(v/maxCat*100).toFixed(0)}%;background:var(--grn)"></div></div>
+        <div class="bar-val">${v}</div>
+      </div>`).join('')||'<p style="font-size:12px;color:var(--t3)">Sin datos</p>'}
+    </div>
+  </div>`;
+}
+
+// ════════════════════════════════════════
+// ADMIN VIEW
+// ════════════════════════════════════════
+function renderAdminUsers(){
+  const el=document.getElementById('admin-users-list');if(!el)return;
+  if(!USERS.length){el.innerHTML='<div style="padding:20px;color:var(--t3);font-size:13px">Sin usuarios</div>';return;}
+  const roleLabel={admin:'Admin',calidad:'Calidad',agente:'Agente',usuario:'Usuario',superusuario:'Super'};
+  el.innerHTML=`<div style="padding:10px 14px;border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between"><div style="font-size:11px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.08em">Usuarios del sistema</div><button class="btn btn-primary btn-xs" onclick="openM('newuser')">+ Nuevo</button></div>`+USERS.map(u=>`
+    <div style="display:flex;align-items:center;padding:11px 16px;border-bottom:1px solid var(--b0);gap:12px">
+      <div class="uav2">${u.av||'?'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--t0)">${u.name}</div>
+        <div style="font-size:11px;color:var(--t3)">${u.username?'@'+u.username+' · ':''} ${u.email}</div>
+      </div>
+      <span class="rp ${u.role==='admin'?'rp-a':u.role==='calidad'?'rp-q':'rp-g'}">${roleLabel[u.role]||u.role}</span>
+      <span style="font-size:11px;color:${u.active?'var(--grn)':'var(--t3)'};width:50px">${u.active?'● activo':'○ inact.'}</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-secondary btn-xs" onclick="openM('edituser','${u.id}')">Editar</button>
+        <button class="btn btn-secondary btn-xs" onclick="toggleUser('${u.id}')">${u.active?'Desact.':'Activar'}</button>
+        ${u.id!==CU.id?`<button class="btn btn-danger btn-xs" onclick="removeUser('${u.id}')">✕</button>`:''}
+      </div>
+    </div>`).join('');
+}
+
+// ════════════════════════════════════════
+// MODAL
+// ════════════════════════════════════════
+function openM(type,id){
+  const t=id?TPL.find(x=>x.id==id):null;
+  document.getElementById('overlay').classList.add('on');
+  const mc=document.getElementById('modal-c');
+  if(type==='create'||type==='edit'){
+    mc.innerHTML=`
+    <div class="mh"><h3 class="mh-title">${type==='create'?'Nueva macro':'Editar macro'}</h3><button class="mx" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Título</label><input class="fi" id="f-tit" value="${t?esc(t.title):''}" placeholder="Nombre de la macro…"></div>
+      <div class="frow">
+        <div class="fg"><label>Categoría</label><select class="fi" id="f-cat">${CATS.map(c=>`<option ${t&&t.cat===c?'selected':''}>${c}</option>`).join('')}</select></div>
+        <div class="fg"><label>Visibilidad</label><select class="fi" id="f-vis"><option value="private" ${!t||t.visibility!=='shared'?'selected':''}>Privada</option><option value="shared" ${t&&t.visibility==='shared'?'selected':''}>Compartida (equipo)</option></select></div>
+      </div>
+      <div class="fg"><label>Tags (coma separados)</label><input class="fi" id="f-tags" value="${t?(t.tags||[]).join(', '):''}" placeholder="urgente, formal…"></div>
+      <div class="fg"><label>Contenido</label>${buildEditor(t?t.body:'','Escribí el contenido de la macro…')}</div>
+    </div>
+    <div class="mf">
+      ${type==='edit'?`<button class="btn btn-danger" onclick="delTPL('${t.id}')">Eliminar</button>`:''}
+      <button class="btn btn-secondary" onclick="closeM()">Cancelar</button>
+      <button class="btn btn-primary" onclick="saveTPL('${t?t.id:'null'}')">${type==='create'?'Crear macro':'Guardar'}</button>
+    </div>`;
+    setTimeout(()=>{document.getElementById('editor')?.focus();updateToolbar();},50);
+  } else if(type==='newuser'){
+    mc.innerHTML=`<div class="mh"><h3 class="mh-title">Nuevo usuario</h3><button class="mx" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <div class="frow"><div class="fg"><label>Nombre completo</label><input class="fi" id="nu-n" placeholder="Nombre Apellido"></div><div class="fg"><label>Usuario</label><input class="fi" id="nu-u" placeholder="ej: francob" autocomplete="off"></div></div>
+      <div class="frow"><div class="fg"><label>Email</label><input class="fi" id="nu-e" type="email" placeholder="email@cocos.capital"></div><div class="fg"><label>Contraseña</label><input class="fi" id="nu-p" type="password"></div></div>
+      <div class="frow">
+        <div class="fg"><label>Rol</label>
+          <select class="fi" id="nu-r">
+            <option value="usuario">Usuario — crea y usa macros</option>
+            <option value="calidad">Calidad — aprueba macros</option>
+            <option value="admin">Admin — gestión completa</option>
+            <option value="superusuario">Superusuario — todos los roles</option>
+            <option value="agente">Agente</option>
+          </select>
+        </div>
+        <div class="fg"></div>
+      </div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancelar</button><button class="btn btn-primary" onclick="createUser()">Crear</button></div>`;
+  } else if(type==='edituser'){
+    const u=USERS.find(x=>x.id==id);if(!u)return;
+    mc.innerHTML=`<div class="mh"><h3 class="mh-title">Editar usuario</h3><button class="mx" onclick="closeM()">✕</button></div>
+    <div class="mb">
+      <div class="fg"><label>Nombre completo</label><input class="fi" id="eu-n" value="${u.name}"></div>
+      <div class="fg"><label>Usuario</label><input class="fi" id="eu-u" value="${u.username||''}" autocomplete="off"></div>
+      <div class="fg"><label>Rol</label>
+        <select class="fi" id="eu-r">
+          <option value="usuario" ${u.role==='usuario'?'selected':''}>Usuario</option>
+          <option value="calidad" ${u.role==='calidad'?'selected':''}>Calidad</option>
+          <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+          <option value="superusuario" ${u.role==='superusuario'?'selected':''}>Superusuario</option>
+          <option value="agente" ${u.role==='agente'?'selected':''}>Agente</option>
+        </select>
+      </div>
+      <div class="fg"><label>Nueva contraseña (vacío = sin cambios)</label><input class="fi" id="eu-p" type="password"></div>
+    </div>
+    <div class="mf"><button class="btn btn-secondary" onclick="closeM()">Cancelar</button><button class="btn btn-primary" onclick="updateUser('${u.id}')">Guardar</button></div>`;
+  }
+}
+function closeM(){document.getElementById('overlay').classList.remove('on');}
+
+async function saveTPL(id){
+  const title=document.getElementById('f-tit').value.trim();
+  const body=getEditorHTML();
+  if(!title||!stripHTML(body).trim()){toast('Completá título y contenido','er');return;}
+  const cat=document.getElementById('f-cat').value;
+  const visibility=document.getElementById('f-vis').value;
+  const tags=document.getElementById('f-tags').value.split(',').map(s=>s.trim()).filter(Boolean);
+  const now=today();
+  if(id==='null'){
+    const nid=SB_CONNECTED?crypto.randomUUID():'l-'+Date.now();
+    const nt={id:nid,title,body,cat,status:'aprobada',visibility,tags,fav:false,uses:0,rating:0,ratingCnt:0,created:now,edited:now,createdBy:CU.id,versions:[],comments:[],estado_calidad:'pendiente',aprobada_por_calidad:false,aprobada_por:'',fecha_aprobacion:null};
+    TPL.unshift(nt);if(SB_CONNECTED)await sbSave(nt);
+    toast('Macro creada ✓ — pendiente de revisión','ok');
+  }else{
+    const t=TPL.find(t=>t.id==id);if(!t)return;
+    Object.assign(t,{title,body,cat,visibility,tags,edited:now});
+    if(SB_CONNECTED)await sbSave(t);
+    toast('Guardado ✓','ok');
+    if(selId==t.id)renderDetail();
+  }
+  save();closeM();draw();
+}
+async function delTPL(id){if(!confirm('¿Eliminar esta macro?'))return;TPL=TPL.filter(t=>t.id!=id);if(SB_CONNECTED)await sbDelete(id);save();closeM();closeDetail();draw();toast('Macro eliminada','ok');}
+
+// USERS
+function createUser(){
+  const name=document.getElementById('nu-n').value.trim(),email=document.getElementById('nu-e').value.trim(),pass=document.getElementById('nu-p').value.trim(),role=document.getElementById('nu-r').value;
+  if(!name||!email||!pass){toast('Completá todos los campos','er');return;}
+  if(USERS.find(u=>u.email===email)){toast('El email ya existe','er');return;}
+  const username=(document.getElementById('nu-u')?.value||'').trim().toLowerCase();
+  const av=name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  USERS.push({id:'u-'+Date.now(),email,pass,name,username,role,active:true,av,passChanged:false});
+  localStorage.setItem('m4_users',JSON.stringify(USERS));saveUsersToSB();closeM();renderAdminUsers();toast(`Usuario ${name} creado`,'ok');
+}
+function updateUser(id){
+  const u=USERS.find(x=>x.id==id);if(!u)return;
+  u.name=document.getElementById('eu-n').value.trim();u.role=document.getElementById('eu-r').value;
+  const nu=(document.getElementById('eu-u')?.value||'').trim().toLowerCase();if(nu)u.username=nu;
+  u.av=u.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
+  const np=document.getElementById('eu-p').value.trim();if(np)u.pass=np;
+  localStorage.setItem('m4_users',JSON.stringify(USERS));saveUsersToSB();closeM();renderAdminUsers();toast('Usuario actualizado','ok');
+}
+function toggleUser(id){const u=USERS.find(x=>x.id==id);if(!u||u.id===CU.id){toast('No podés desactivarte','er');return;}u.active=!u.active;localStorage.setItem('m4_users',JSON.stringify(USERS));renderAdminUsers();}
+function removeUser(id){const u=USERS.find(x=>x.id==id);if(!u||u.id===CU.id)return;if(!confirm(`¿Eliminar a ${u.name}?`))return;USERS=USERS.filter(x=>x.id!=id);localStorage.setItem('m4_users',JSON.stringify(USERS));renderAdminUsers();toast('Eliminado','ok');}
+async function saveUsersToSB(){
+  try{for(const u of USERS){const p={id:u.id,email:u.email,username:u.username||'',name:u.name,pass:u.pass,role:u.role,active:u.active,av:u.av,pass_changed:u.passChanged||false};await fetch(SB_URL+'/rest/v1/users',{method:'POST',headers:{'apikey':SB_KEY,'Authorization':'Bearer '+SB_KEY,'Content-Type':'application/json','Prefer':'resolution=merge-duplicates'},body:JSON.stringify(p)});}}catch(e){}
+}
+
+// ════════════════════════════════════════
+// SETTINGS
+// ════════════════════════════════════════
+function toggleSettings(){settingsOpen=!settingsOpen;document.getElementById('settings-panel').classList.toggle('on',settingsOpen);document.getElementById('settings-btn').classList.toggle('active',settingsOpen);if(settingsOpen)spTab(currentSpTab);}
+function spTab(tab){
+  currentSpTab=tab;
+  document.querySelectorAll('.sp-tab').forEach(t=>{
+    const m=(tab==='analytics'&&t.textContent==='Analytics')||(tab==='ie'&&t.textContent==='Import / Export')||(tab==='supabase'&&t.textContent==='Base de datos');
+    t.classList.toggle('on',m);
+  });
+  const body=document.getElementById('sp-body');
+  if(tab==='analytics')renderAnalyticsSP(body);
+  else if(tab==='ie')renderIE(body);
+  else if(tab==='supabase')renderDBSettings(body);
+}
+function renderAnalyticsSP(el){
+  const mine=TPL.filter(t=>t.createdBy===CU?.id);const vis=getVisTPL();const top5=[...vis].sort((a,b)=>b.uses-a.uses).slice(0,5);const mxU=Math.max(...top5.map(t=>t.uses),1);
+  el.innerHTML=`<h3 style="font-size:13px;font-weight:700;color:var(--t0);margin-bottom:14px">Analytics personales</h3>
+  <div class="panel"><div class="ph"><span class="ph-title">Top macros por uso</span></div><div class="pb">${top5.map(t=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;color:var(--t0);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${t.title}</div><div style="height:4px;background:var(--blue);border-radius:2px;width:${(t.uses/mxU*100).toFixed(0)}%;margin-top:3px"></div></div><div style="font-size:11px;color:var(--t3);width:28px;text-align:right">${t.uses}</div></div>`).join('')||'<p style="font-size:12px;color:var(--t3)">Sin datos aún</p>'}</div></div>
+  <div class="panel"><div class="ph"><span class="ph-title">Resumen</span></div><div class="pb" style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${[['Mis macros',mine.length],['Total visibles',vis.length],['Usos totales',mine.reduce((a,t)=>a+t.uses,0)],['Oficiales',mine.filter(t=>t.visibility==='shared'&&t.estado_calidad==='aprobada').length]].map(([l,v])=>`<div style="background:var(--s2);border-radius:var(--r-sm);padding:10px;text-align:center"><div style="font-size:20px;font-weight:800;color:var(--t0)">${v}</div><div style="font-size:11px;color:var(--t3)">${l}</div></div>`).join('')}</div></div>`;
+}
+function renderIE(el){
+  const mine=TPL.filter(t=>t.createdBy===CU?.id);
+  el.innerHTML=`<h3 style="font-size:13px;font-weight:700;color:var(--t0);margin-bottom:14px">Import / Export</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+    <div style="background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:14px;text-align:center;cursor:pointer;transition:border-color .15s" onclick="doExport('json')" onmouseover="this.style.borderColor='var(--b2)'" onmouseout="this.style.borderColor='var(--b0)'"><div style="font-size:24px;margin-bottom:7px">📤</div><div style="font-size:12px;font-weight:600;color:var(--t0);margin-bottom:2px">Exportar JSON</div><div style="font-size:11px;color:var(--t3)">${mine.length} macros propias</div></div>
+    <div style="background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);padding:14px;text-align:center;cursor:pointer;transition:border-color .15s" onclick="doExport('csv')" onmouseover="this.style.borderColor='var(--b2)'" onmouseout="this.style.borderColor='var(--b0)'"><div style="font-size:24px;margin-bottom:7px">📊</div><div style="font-size:12px;font-weight:600;color:var(--t0);margin-bottom:2px">Exportar CSV</div><div style="font-size:11px;color:var(--t3)">Para Excel / Sheets</div></div>
+  </div>
+  <div class="panel" style="margin-bottom:12px">
+    <div class="ph"><span class="ph-title">Carga masiva con Claude</span><button class="btn btn-secondary btn-sm" onclick="copyOrgPrompt()" id="copy-prompt-btn">Copiar prompt</button></div>
+    <div class="pb">
+      <p style="font-size:12px;color:var(--t2);line-height:1.6;margin-bottom:10px">Pedile a Claude que convierta tus macros a formato JSON usando este prompt:</p>
+      <div id="org-prompt" style="background:var(--bg);border:1px solid var(--b0);border-radius:var(--r-sm);padding:10px;font-size:11px;color:var(--t2);font-family:var(--fm);line-height:1.6;max-height:110px;overflow-y:auto;white-space:pre-wrap">Convertí las siguientes macros al formato JSON para importar.
+Devolvé SOLO el array JSON, sin texto adicional ni markdown.
+
+Formato requerido:
+[
+  {
+    "title": "Nombre de la macro",
+    "cat": "Consultas",
+    "body": "&lt;p&gt;Contenido HTML de la macro&lt;/p&gt;",
+    "tags": ["tag1", "tag2"],
+    "visibility": "shared"
+  }
+]
+
+Categorías disponibles: Bloqueos, Aperturas, Onboarding, Retiros, Suscripciones, Seguimiento, Reclamos, Consultas, Transferencias, Inversiones y Mercado, Límites y Tarjeta, Documentación, Cierre de cuenta, Cambio de datos, Otros
+
+Reglas:
+- El campo "body" debe preservar el texto exacto del mensaje
+- Elegí tags descriptivos (máximo 3): urgente, formal, friendly, seguimiento, técnico, legal, bienvenida, recordatorio
+- visibility siempre "shared"
+
+Acá van mis macros:
+[PEGÁ TUS MACROS ACÁ]</div>
+    </div>
+  </div>
+  <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-inp').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="handleFileDrop(event)">
+    <div style="font-size:22px;color:var(--t3)">⬆</div>
+    <div style="font-size:12px;color:var(--t2);margin-top:5px;font-weight:500">Arrastrá tu JSON aquí</div>
+    <div style="font-size:11px;color:var(--t3);margin-top:2px">o click para seleccionar</div>
+    <input type="file" id="file-inp" accept=".json" style="display:none" onchange="handleFileInput(event)">
+  </div>
+  <div id="import-pw"></div>`;
+}
+
+function copyOrgPrompt(){
+  const txt=document.getElementById('org-prompt')?.textContent||'';
+  navigator.clipboard.writeText(txt).then(()=>{
+    const btn=document.getElementById('copy-prompt-btn');
+    if(btn){const orig=btn.textContent;btn.textContent='✓ Copiado';setTimeout(()=>{btn.textContent=orig;},2000);}
+    toast('Prompt copiado — pegalo en Claude con tus macros','ok');
+  });
+}
+function renderDBSettings(el){el.innerHTML=`<h3 style="font-size:13px;font-weight:700;color:var(--t0);margin-bottom:14px">Base de datos</h3>
+  <div class="panel"><div class="ph"><span class="ph-title">Estado de conexión</span></div><div class="pb"><div class="sb-status conn" style="font-size:12px;padding:8px 12px;margin-bottom:12px"><div class="status-dot" style="background:var(--grn)"></div>${SB_CONNECTED?'Conectado a Supabase':'Modo local'}</div><p style="font-size:12px;color:var(--t2);line-height:1.6">Tablas activas: users, macros, eventos, novedades, planillas.</p></div></div>
+  <div class="panel"><div class="ph"><span class="ph-title">SQL pendiente</span></div><div class="pb"><p style="font-size:12px;color:var(--t2);margin-bottom:8px">Si aún no corriste este SQL en Supabase, ejecutalo para habilitar los motivos de rechazo:</p><div style="background:var(--bg);border:1px solid var(--b0);border-radius:var(--r-sm);padding:10px;font-family:var(--fm);font-size:11px;color:var(--t2);line-height:1.6">alter table macros add column if not exists motivo_rechazo text default '';</div></div></div>`;
+}
+function renderUsersSP(el){
+  if(CU.role!=='admin'&&CU.role!=='superusuario'){el.innerHTML='<p style="color:var(--t3)">Solo administradores</p>';return;}
+  renderAdminUsers();
+  el.innerHTML='<p style="font-size:12px;color:var(--t2);margin-bottom:10px">Gestión de usuarios disponible en modo Admin.</p>';
+}
+
+function doExport(fmt){
+  const mine=TPL.filter(t=>t.createdBy===CU?.id);const now=today();
+  if(fmt==='json'){dl(new Blob([JSON.stringify(mine,null,2)],{type:'application/json'}),`macros_${CU.name.replace(/\s/g,'_')}_${now}.json`);}
+  else{const h='id,titulo,categoria,visibilidad,usos,estado_calidad,creada\n';const r=mine.map(t=>`"${t.id}","${(t.title||'').replace(/"/g,'""')}","${t.cat}","${t.visibility||'private'}",${t.uses},"${t.estado_calidad||'pendiente'}",${t.created}`).join('\n');dl(new Blob(['\uFEFF'+h+r],{type:'text/csv;charset=utf-8'}),`macros_${CU.name.replace(/\s/g,'_')}_${now}.csv`);}
+  toast('Exportadas ✓','ok');
+}
+function dl(blob,name){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);}
+function handleFileDrop(e){e.preventDefault();document.getElementById('drop-zone')?.classList.remove('drag');const f=e.dataTransfer.files[0];if(f)procFile(f);}
+function handleFileInput(e){const f=e.target.files[0];if(f)procFile(f);}
+function procFile(f){if(!f.name.endsWith('.json')){toast('Solo .json','er');return;}const r=new FileReader();r.onload=ev=>{try{const d=JSON.parse(ev.target.result);if(!Array.isArray(d))throw new Error('Array esperado');importPreview=d.map(t=>({...t,_isNew:!TPL.some(ex=>ex.id===t.id||ex.title===t.title),_conflict:TPL.some(ex=>ex.id===t.id||ex.title===t.title)}));renderImportPreview(f.name);}catch(err){toast('JSON inválido','er');}};r.readAsText(f);}
+function renderImportPreview(fname){const w=document.getElementById('import-pw');if(!w)return;const news=importPreview.filter(t=>t._isNew).length;const conf=importPreview.filter(t=>t._conflict).length;w.innerHTML=`<div style="background:var(--s1);border:1px solid var(--b0);border-radius:var(--r-md);margin-top:10px;overflow:hidden"><div style="padding:10px 14px;border-bottom:1px solid var(--b0);display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:12px;font-weight:600;color:var(--t0)">${fname}</div><div style="font-size:11px;color:var(--t3)">${importPreview.length} macros · ${news} nuevas · ${conf} conflictos</div></div><div style="display:flex;gap:6px"><button class="btn btn-secondary btn-xs" onclick="cancelImport()">Cancelar</button><button class="btn btn-success btn-xs" onclick="confirmImport()">Importar</button></div></div><div style="padding:8px 14px;max-height:160px;overflow-y:auto">${importPreview.map((t,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--b0)"><input type="checkbox" id="ipc-${i}" ${t._isNew?'checked':''}><span style="font-size:12px;color:var(--t1);flex:1">${t.title||'Sin título'}</span><span style="font-size:10px;color:${t._conflict?'var(--amb)':'var(--grn)'};font-weight:600">${t._conflict?'conflicto':'nueva'}</span></div>`).join('')}</div></div>`;}
+function cancelImport(){importPreview=[];const w=document.getElementById('import-pw');if(w)w.innerHTML='';}
+async function confirmImport(){
+  const sel=importPreview.filter((_,i)=>document.getElementById('ipc-'+i)?.checked);
+  if(!sel.length){toast('Seleccioná al menos una','er');return;}
+  let added=0,updated=0;
+  for(const raw of sel){const t={...raw};delete t._isNew;delete t._conflict;if(!t.id)t.id=SB_CONNECTED?crypto.randomUUID():'l-'+Date.now()+Math.random();t.createdBy=CU.id;t.versions=t.versions||[];t.comments=t.comments||[];t.uses=t.uses||0;t.rating=t.rating||0;t.ratingCnt=t.ratingCnt||0;t.status=t.status||'aprobada';t.fav=t.fav||false;t.created=t.created||today();t.edited=t.edited||today();t.visibility=t.visibility||'private';t.estado_calidad=t.estado_calidad||'pendiente';if(!t.body&&t.content)t.body=`<p>${(t.content||'').replace(/\n\n/g,'</p><p>').replace(/\n/g,'<br>')}</p>`;const idx=TPL.findIndex(ex=>ex.id===t.id||ex.title===t.title);if(idx>=0){TPL[idx]={...TPL[idx],...t};updated++;}else{TPL.unshift(t);added++;}if(SB_CONNECTED)await sbSave(t);}
+  save();cancelImport();draw();toast(`Importación: ${added} nuevas, ${updated} actualizadas`,'ok');renderIE(document.getElementById('sp-body'));
+}
+
+// ════════════════════════════════════════
+// RICH EDITOR
+// ════════════════════════════════════════
+function buildEditor(initialHTML,placeholder){
+  return`<div class="editor-wrap" id="ew"><div class="editor-toolbar">
+    <button class="tb-tool" onclick="fmt('bold')" title="Ctrl+B"><strong>B</strong></button>
+    <button class="tb-tool" onclick="fmt('italic')" title="Ctrl+I"><em>I</em></button>
+    <div class="tb-sep"></div>
+    <button class="tb-tool" onclick="fmtBlock('p')">¶</button>
+    <button class="tb-tool" onclick="fmtBlock('h3')">H</button>
+    <button class="tb-tool" onclick="fmt('insertUnorderedList')"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M5 3.5h8a.5.5 0 000-1H5a.5.5 0 000 1zm0 4h8a.5.5 0 000-1H5a.5.5 0 000 1zm0 4h8a.5.5 0 000-1H5a.5.5 0 000 1zM1.5 3a.5.5 0 100-1 .5.5 0 000 1zm0 4a.5.5 0 100-1 .5.5 0 000 1zm0 4a.5.5 0 100-1 .5.5 0 000 1z"/></svg></button>
+    <div class="tb-sep"></div>
+    <button class="tb-tool" onclick="insertLink()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M4.715 6.542L3.343 7.914a3 3 0 104.243 4.243l1.828-1.829A3 3 0 008.586 5.5L8 6.086a1.002 1.002 0 00-.154.199 2 2 0 01.861 3.337L6.88 11.45a2 2 0 01-2.83-2.83l.793-.792a4.018 4.018 0 01-.128-1.287z"/><path d="M6.586 4.672A3 3 0 007.414 9.5l.775-.776a2 2 0 01-.896-3.346L9.12 3.55a2 2 0 012.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 10-4.243-4.243L6.586 4.672z"/></svg></button>
+    <button class="tb-tool" onclick="triggerImgUpload()"><svg viewBox="0 0 16 16" fill="currentColor"><path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/></svg></button>
+    <div class="tb-sep"></div>
+    <button class="tb-tool" onclick="insertVar()">{x}</button>
+  </div>
+  <div class="editor-body" id="editor" contenteditable="true" data-placeholder="${placeholder||'Escribí el contenido…'}" onkeydown="editorKeydown(event)" oninput="updateToolbar()" onmouseup="updateToolbar()" onpaste="handlePaste(event)" ondragover="event.preventDefault()" ondrop="handleImgDrop(event)">${initialHTML||''}</div>
+  <div class="img-drop-hint"><svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M6.002 5.5a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z"/><path d="M2.002 1a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V3a2 2 0 00-2-2h-12zm12 1a1 1 0 011 1v6.5l-3.777-1.947a.5.5 0 00-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 00-.63.062L1.002 12V3a1 1 0 011-1h12z"/></svg>Arrastrá imágenes · Ctrl+B negrita · Ctrl+I cursiva</div>
+  <input type="file" id="img-file-inp" accept="image/*" style="display:none" onchange="handleImgFile(event)">
+  </div>`;
+}
+function fmt(cmd){document.execCommand(cmd,false,null);updateToolbar();document.getElementById('editor')?.focus();}
+function fmtBlock(tag){document.execCommand('formatBlock',false,tag);document.getElementById('editor')?.focus();}
+function updateToolbar(){const ed=document.getElementById('editor');if(!ed)return;const tb=ed.closest('.editor-wrap')?.querySelectorAll('.tb-tool');if(!tb)return;tb[0]?.classList.toggle('on',document.queryCommandState('bold'));tb[1]?.classList.toggle('on',document.queryCommandState('italic'));}
+function editorKeydown(e){if(e.ctrlKey||e.metaKey){if(e.key==='b'){e.preventDefault();fmt('bold');}if(e.key==='i'){e.preventDefault();fmt('italic');}}}
+function handlePaste(e){const items=e.clipboardData?.items||[];for(const item of items){if(item.type.startsWith('image/')){e.preventDefault();const blob=item.getAsFile();const r=new FileReader();r.onload=ev=>insertImgAtCursor(ev.target.result);r.readAsDataURL(blob);return;}}const html=e.clipboardData?.getData('text/html');if(html){e.preventDefault();const d=document.createElement('div');d.innerHTML=html;d.querySelectorAll('[style]').forEach(el=>el.removeAttribute('style'));d.querySelectorAll('[class]').forEach(el=>el.removeAttribute('class'));d.querySelectorAll('script,link,meta,head').forEach(el=>el.remove());document.execCommand('insertHTML',false,d.innerHTML);}}
+function triggerImgUpload(){document.getElementById('img-file-inp')?.click();}
+function handleImgFile(e){const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=ev=>insertImgAtCursor(ev.target.result);r.readAsDataURL(file);e.target.value='';}
+function handleImgDrop(e){e.preventDefault();const file=[...e.dataTransfer.items].find(i=>i.type.startsWith('image/'))?.getAsFile();if(!file)return;const r=new FileReader();r.onload=ev=>insertImgAtCursor(ev.target.result);r.readAsDataURL(file);}
+function insertImgAtCursor(src){const ed=document.getElementById('editor');if(!ed)return;ed.focus();document.execCommand('insertHTML',false,`<img src="${src}" style="max-width:100%;border-radius:6px;display:block;margin:6px 0">`);}
+function insertLink(){const url=prompt('URL del link:');if(url){const sel=window.getSelection()?.toString()||url;document.execCommand('insertHTML',false,`<a href="${url}" target="_blank">${sel}</a>`);}}
+function insertVar(){const name=prompt('Nombre de la variable:');if(name)document.execCommand('insertHTML',false,`<span class="var-span">{${name}}</span>`);}
+function getEditorHTML(){const ed=document.getElementById('editor');if(!ed)return'';const clone=ed.cloneNode(true);clone.querySelectorAll('.var-span').forEach(s=>{const txt=document.createTextNode(s.textContent);s.replaceWith(txt);});return clone.innerHTML;}
+
+// ════════════════════════════════════════
+// AUTH FORMS
+// ════════════════════════════════════════
+function checkPassMatch(){
+  const np=document.getElementById('cp-new')?.value||'';const cp=document.getElementById('cp-confirm')?.value||'';
+  document.getElementById('cp-weak').style.display=(np.length>0&&np.length<6)?'block':'none';
+  document.getElementById('cp-err').style.display=(cp.length>0&&np!==cp)?'block':'none';
+  const btn=document.getElementById('cp-save-btn');if(btn)btn.disabled=(np.length<6||np!==cp);
+}
+function saveNewPass(){
+  const np=document.getElementById('cp-new')?.value||'';const cp=document.getElementById('cp-confirm')?.value||'';
+  if(np.length<6){toast('Mínimo 6 caracteres','er');return;}if(np!==cp){toast('Las contraseñas no coinciden','er');return;}
+  const idx=USERS.findIndex(x=>x.id===CU.id);if(idx>=0){USERS[idx].pass=np;USERS[idx].passChanged=true;}
+  CU.pass=np;CU.passChanged=true;localStorage.setItem('m4_users',JSON.stringify(USERS));saveUsersToSB();saveSharedSession(CU);
+  document.getElementById('chpass-overlay').classList.remove('on');toast('Contraseña actualizada ✓','ok');
+}
+function skipPassChange(){document.getElementById('chpass-overlay').classList.remove('on');}
+function showUserMenu(){
+  const menu=document.createElement('div');
+  menu.style.cssText='position:fixed;top:62px;right:20px;background:var(--s1);border:1px solid var(--b1);border-radius:var(--r-md);padding:6px;z-index:300;min-width:190px;box-shadow:var(--sh-md)';
+  menu.innerHTML=`<div style="padding:9px 12px;font-size:12px;font-weight:600;color:var(--t0);border-bottom:1px solid var(--b0);margin-bottom:4px">${CU.name}<div style="font-size:10px;font-weight:400;color:var(--t3);margin-top:1px">${CU.email||''}</div></div><div style="padding:8px 12px;font-size:13px;color:var(--t1);border-radius:var(--r-sm);cursor:pointer;transition:background .1s" onmouseover="this.style.background='var(--b0)'" onmouseout="this.style.background=''" onclick="openChangePass()">Cambiar contraseña</div><div style="padding:8px 12px;font-size:13px;color:var(--red);border-radius:var(--r-sm);cursor:pointer;transition:background .1s" onmouseover="this.style.background='var(--b0)'" onmouseout="this.style.background=''" onclick="doLogout()">Cerrar sesión</div>`;
+  document.body.appendChild(menu);
+  setTimeout(()=>document.addEventListener('click',function h(){menu.remove();document.removeEventListener('click',h);}),50);
+}
+function openChangePass(){document.getElementById('cp-new').value='';document.getElementById('cp-confirm').value='';document.getElementById('cp-err').style.display='none';document.getElementById('cp-weak').style.display='none';document.getElementById('chpass-overlay').classList.add('on');}
+function doLogout(){if(confirm('¿Cerrar sesión?')){clearSharedSession();SB_CONNECTED=false;CU=null;location.reload();}}
+
+// ════════════════════════════════════════
+// PiP (Picture-in-Picture flotante)
+// ════════════════════════════════════════
+let pipId=null, pipMode='content';
+let pipDrag=false, pipOX=0, pipOY=0;
+
+function openPiP(id){
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  pipId=id; pipMode='content';
+  document.getElementById('pip-title').textContent=t.title;
+  document.getElementById('pip-body').innerHTML=t.body||'';
+  document.getElementById('pip-content-view').style.display='flex';
+  document.getElementById('pip-list-view').style.display='none';
+  document.getElementById('pip-mode-btn').textContent='☰ Lista';
+  document.getElementById('pip-win').classList.add('on');
+}
+function closePiP(){
+  document.getElementById('pip-win').classList.remove('on');
+  pipId=null;
+}
+function togglePiPMin(){
+  const win=document.getElementById('pip-win');
+  const btn=document.getElementById('pip-min-btn');
+  const isMin=win.classList.toggle('minimized');
+  btn.textContent=isMin?'+':'−';
+}
+function togglePiPMode(){
+  pipMode=pipMode==='content'?'list':'content';
+  if(pipMode==='list'){
+    document.getElementById('pip-content-view').style.display='none';
+    document.getElementById('pip-list-view').style.display='flex';
+    document.getElementById('pip-title').textContent='Buscar macros';
+    document.getElementById('pip-mode-btn').textContent='← Volver';
+    renderPiPList();
+    setTimeout(()=>document.getElementById('pip-search')?.focus(),50);
+  } else {
+    document.getElementById('pip-content-view').style.display='flex';
+    document.getElementById('pip-list-view').style.display='none';
+    if(pipId){const t=TPL.find(t=>t.id==pipId);if(t)document.getElementById('pip-title').textContent=t.title;}
+    document.getElementById('pip-mode-btn').textContent='☰ Lista';
+  }
+}
+function renderPiPList(){
+  const q=(document.getElementById('pip-search')?.value||'').toLowerCase();
+  let list=getVisTPL();
+  if(q)list=list.filter(t=>t.title.toLowerCase().includes(q)||t.cat.toLowerCase().includes(q)||stripHTML(t.body).toLowerCase().includes(q));
+  list=[...list].sort((a,b)=>a.title.localeCompare(b.title));
+  const el=document.getElementById('pip-list');if(!el)return;
+  if(!list.length){el.innerHTML='<div style="padding:20px;text-align:center;font-size:12px;color:var(--t3)">Sin resultados</div>';return;}
+  el.innerHTML=list.map(t=>`<div class="pip-item"><div style="flex:1;min-width:0;cursor:pointer" onclick="pipSelectMacro('${t.id}')"><div class="pip-item-title">${esc(t.title)}</div><div class="pip-item-cat">${t.cat}</div></div><div class="pip-item-actions"><button class="btn btn-primary btn-xs" id="pip-cb-${t.id}" onclick="pipCopyById('${t.id}')"><svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M4 2h8v2H4zm-2 2h12v11H2V4zm2 2v7h8V6H4z"/></svg></button></div></div>`).join('');
+}
+function pipSelectMacro(id){
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  pipId=id;
+  document.getElementById('pip-body').innerHTML=t.body||'';
+  document.getElementById('pip-title').textContent=t.title;
+  pipMode='content';
+  document.getElementById('pip-content-view').style.display='flex';
+  document.getElementById('pip-list-view').style.display='none';
+  document.getElementById('pip-mode-btn').textContent='☰ Lista';
+}
+async function pipCopyById(id){
+  const t=TPL.find(t=>t.id==id);if(!t)return;
+  const plain=t.body.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  try{await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob(['<!DOCTYPE html><html><body>'+t.body+'</body></html>'],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);}
+  catch(e){try{await navigator.clipboard.writeText(plain);}catch(e2){}}
+  const btn=document.getElementById('pip-cb-'+id);
+  if(btn){btn.innerHTML='✓';btn.style.background='var(--grn)';setTimeout(()=>{btn.innerHTML='<svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor"><path d="M4 2h8v2H4zm-2 2h12v11H2V4zm2 2v7h8V6H4z"/></svg>';btn.style.background='';},1800);}
+}
+async function pipCopy(){
+  if(!pipId)return;
+  const t=TPL.find(t=>t.id==pipId);if(!t)return;
+  const plain=t.body.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+  try{await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob(['<!DOCTYPE html><html><body>'+t.body+'</body></html>'],{type:'text/html'}),'text/plain':new Blob([plain],{type:'text/plain'})})]);}
+  catch(e){try{await navigator.clipboard.writeText(plain);}catch(e2){}}
+  const btn=document.getElementById('pip-copy-btn');
+  if(btn){const orig=btn.innerHTML;btn.innerHTML='✓ Copiado';btn.style.background='var(--grn)';btn.style.borderColor='var(--grn)';setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';btn.style.borderColor='';},1800);}
+  t.uses++;save();if(SB_CONNECTED)sbSave(t);
+  toast('Copiado para Intercom ✓','ok');
+}
+
+// PiP drag logic — init on DOMContentLoaded
+function initPiPDrag(){
+  const bar=document.getElementById('pip-bar');
+  const win=document.getElementById('pip-win');
+  if(!bar||!win)return;
+  bar.addEventListener('mousedown',e=>{
+    if(e.target.closest('button'))return;
+    pipDrag=true;
+    pipOX=e.clientX-win.getBoundingClientRect().left;
+    pipOY=e.clientY-win.getBoundingClientRect().top;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{
+    if(!pipDrag)return;
+    win.style.left=Math.max(0,Math.min(window.innerWidth-win.offsetWidth,e.clientX-pipOX))+'px';
+    win.style.top=Math.max(48,Math.min(window.innerHeight-win.offsetHeight,e.clientY-pipOY))+'px';
+    win.style.right='auto';
+    win.style.bottom='auto';
+  });
+  document.addEventListener('mouseup',()=>{ pipDrag=false; });
+}
+
+// ════════════════════════════════════════
+// THEME
+// ════════════════════════════════════════
+function toggleTheme(){const isL=document.documentElement.classList.toggle('light');localStorage.setItem('m4_theme',isL?'light':'dark');document.getElementById('theme-btn').textContent=isL?'☀️':'🌙';}
+function initTheme(){const s=localStorage.getItem('m4_theme');if(s==='light'){document.documentElement.classList.add('light');const b=document.getElementById('theme-btn');if(b)b.textContent='☀️';}}
+
+// ════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════
+// ════════════════════════════════════════
+// EXPORT PDF — Reporte de Calidad
+// Genera HTML → abre en nueva pestaña → Ctrl+P / Guardar como PDF
+// Sin dependencias externas. Autocontenido.
+// ════════════════════════════════════════
+function openExportPDFModal(){
+  // Populate cat filter
+  const sc = document.getElementById('pdf-filter-cat');
+  if(sc){
+    const cats = [...new Set(TPL.map(t=>t.cat))].sort();
+    const fo = sc.options[0];
+    sc.innerHTML = '';
+    sc.appendChild(fo);
+    cats.forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; sc.appendChild(o); });
+  }
+  // Default dates: last 90 days → today
+  const now = new Date();
+  const ago = new Date(now.getTime() - 90*86400000);
+  document.getElementById('pdf-fecha-hasta').value = now.toISOString().split('T')[0];
+  document.getElementById('pdf-fecha-desde').value = ago.toISOString().split('T')[0];
+  document.getElementById('pdf-filter-estado').value = 'todos';
+
+  _pdfUpdateCount();
+
+  // Live count update on filter change
+  ['pdf-filter-estado','pdf-fecha-desde','pdf-fecha-hasta','pdf-filter-cat'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.onchange = _pdfUpdateCount;
+    if(el && el.tagName==='INPUT') el.oninput = _pdfUpdateCount;
+  });
+
+  document.getElementById('overlay-pdf-export').classList.add('on');
+}
+
+function closeExportPDFModal(){
+  document.getElementById('overlay-pdf-export').classList.remove('on');
+}
+
+function _pdfGetFiltered(){
+  const estado   = document.getElementById('pdf-filter-estado')?.value || 'todos';
+  const catF     = document.getElementById('pdf-filter-cat')?.value   || '';
+  const fromStr  = document.getElementById('pdf-fecha-desde')?.value  || '';
+  const toStr    = document.getElementById('pdf-fecha-hasta')?.value  || '';
+  const fromDate = fromStr ? new Date(fromStr+'T00:00:00') : null;
+  const toDate   = toStr   ? new Date(toStr+'T23:59:59')   : null;
+
+  return TPL.filter(t=>{
+    if(estado!=='todos' && t.estado_calidad!==estado) return false;
+    if(catF && t.cat!==catF) return false;
+    if(fromDate || toDate){
+      const d = t.created ? new Date(t.created+'T00:00:00') : null;
+      if(!d) return false;
+      if(fromDate && d < fromDate) return false;
+      if(toDate   && d > toDate)   return false;
+    }
+    return true;
+  });
+}
+
+function _pdfUpdateCount(){
+  const el = document.getElementById('pdf-preview-count');
+  if(!el) return;
+  const n = _pdfGetFiltered().length;
+  el.textContent = n > 0 ? `${n} macro${n!==1?'s':''} incluida${n!==1?'s':''}` : 'Sin macros para los filtros seleccionados';
+  el.style.color = n > 0 ? 'var(--grn)' : 'var(--red)';
+}
+
+function exportQualityReport(){
+  const list = _pdfGetFiltered();
+  if(!list.length){ toast('Sin macros para exportar con esos filtros','er'); return; }
+
+  closeExportPDFModal();
+  toast('Generando PDF…','in');
+
+  const estado  = document.getElementById('pdf-filter-estado')?.value || 'todos';
+  const fromStr = document.getElementById('pdf-fecha-desde')?.value || '';
+  const toStr   = document.getElementById('pdf-fecha-hasta')?.value || '';
+  const now     = new Date().toLocaleDateString('es-AR',{day:'numeric',month:'long',year:'numeric'});
+
+  // Helper: strip HTML → plain text
+  function plain(html){
+    return (html||'')
+      .replace(/<br\s*\/?>/gi,'\n').replace(/<\/p>/gi,'\n').replace(/<\/li>/gi,'\n')
+      .replace(/<[^>]+>/g,'')
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+      .replace(/\n{3,}/g,'\n\n').trim();
+  }
+
+  const estadoLabel = {todos:'Todos los estados',aprobada:'Aprobadas',pendiente:'Pendientes',rechazada:'Rechazadas'}[estado]||estado;
+  const rangoLabel  = (fromStr||toStr) ? `${fromStr||'—'} → ${toStr||'—'}` : 'Sin filtro de fecha';
+
+  // Group by category, then by estado
+  const cats = [...new Set(list.map(t=>t.cat))].sort();
+
+  // Build index rows
+  const indexRows = cats.map(cat=>{
+    const n = list.filter(t=>t.cat===cat).length;
+    return `<tr><td style="padding:7px 14px;font-size:13px;color:#1A3A62;font-weight:500">${cat}</td><td style="padding:7px 14px;font-size:13px;color:#3D6A9A;text-align:right">${n} macro${n!==1?'s':''}</td></tr>`;
+  }).join('');
+
+  // Build macro pages per category
+  const catSections = cats.map(cat=>{
+    const macros = list.filter(t=>t.cat===cat).sort((a,b)=>a.title.localeCompare(b.title));
+    const rows = macros.map((t,i)=>{
+      const estadoBadge = t.estado_calidad==='aprobada'
+        ? `<span style="display:inline-block;padding:2px 9px;border-radius:99px;background:#D1FAE5;color:#065F46;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">✓ Aprobada</span>`
+        : t.estado_calidad==='rechazada'
+        ? `<span style="display:inline-block;padding:2px 9px;border-radius:99px;background:#FEE2E2;color:#991B1B;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">✕ Rechazada</span>`
+        : `<span style="display:inline-block;padding:2px 9px;border-radius:99px;background:#F3F4F6;color:#6B7280;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em">● Pendiente</span>`;
+      const autorName = USERS.find(u=>u.id===t.createdBy)?.name||'—';
+      const msg = plain(t.body);
+      return `<div style="background:#fff;border:1px solid #E5E7EB;border-radius:10px;padding:16px 20px;margin-bottom:14px;break-inside:avoid">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:10px">
+          <div>
+            <div style="font-size:15px;font-weight:700;color:#0F172A;margin-bottom:4px">${t.title||'Sin título'}</div>
+            <div style="display:flex;align-items:center;gap:10px;font-size:11px;color:#6B7280">
+              <span>Autor: <strong>${autorName}</strong></span>
+              <span>·</span>
+              <span>Fecha: ${t.created||'—'}</span>
+              <span>·</span>
+              <span>${t.uses||0} uso${t.uses!==1?'s':''}</span>
+            </div>
+          </div>
+          ${estadoBadge}
+        </div>
+        ${t.estado_calidad==='rechazada'&&t.motivo_rechazo?`<div style="background:#FEF2F2;border:1px solid #FECACA;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:#991B1B;line-height:1.5"><strong>Motivo:</strong> ${t.motivo_rechazo}</div>`:''}
+        <div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;background:#F9FAFB;border-radius:6px;padding:12px 14px;border:1px solid #F3F4F6">${msg||'—'}</div>
+        ${t.aprobada_por?`<div style="margin-top:8px;font-size:11px;color:#9CA3AF">Aprobada por <strong>${t.aprobada_por}</strong>${t.fecha_aprobacion?' · '+new Date(t.fecha_aprobacion).toLocaleDateString('es-AR'):''}</div>`:''}
+      </div>`;
+    }).join('');
+
+    return `<div style="break-before:page">
+      <div style="background:#0062DE;color:#fff;padding:12px 24px;border-radius:10px 10px 0 0;margin-bottom:0;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-size:16px;font-weight:700;letter-spacing:-.02em">${cat}</div>
+        <div style="font-size:12px;opacity:.75">${macros.length} macro${macros.length!==1?'s':''}</div>
+      </div>
+      <div style="padding:20px 0">${rows}</div>
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Reporte de Calidad · Cocos Capital</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Plus Jakarta Sans',Arial,sans-serif;background:#F8FAFC;color:#0F172A;font-size:13px;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .page{width:210mm;margin:0 auto;background:#fff}
+  /* Cover */
+  .cover{min-height:297mm;display:flex;flex-direction:column;justify-content:space-between;padding:0;background:#fff}
+  .cover-top{flex:1;display:flex;flex-direction:column;align-items:flex-start;justify-content:center;padding:64px 56px;background:linear-gradient(135deg,#001533 0%,#0A2456 100%)}
+  .cover-logo{font-size:28px;font-weight:800;color:#fff;letter-spacing:-.04em;margin-bottom:48px}
+  .cover-logo em{color:#0062DE;font-style:normal}
+  .cover-divider{width:48px;height:4px;background:#0062DE;border-radius:2px;margin-bottom:32px}
+  .cover-title{font-size:40px;font-weight:800;color:#fff;letter-spacing:-.04em;line-height:1.1;margin-bottom:12px}
+  .cover-sub{font-size:15px;color:#7AB8FF;font-weight:400;letter-spacing:.06em;text-transform:uppercase}
+  .cover-bottom{background:#0062DE;padding:24px 56px;display:flex;justify-content:space-between;align-items:center}
+  .cover-meta-item{font-size:12px;color:rgba(255,255,255,.8)}
+  .cover-meta-item strong{color:#fff;display:block;font-size:13px;font-weight:600;margin-bottom:2px}
+  /* Index */
+  .index-page{padding:48px 56px;min-height:297mm}
+  .section-header{font-size:13px;font-weight:700;color:#3D6A9A;text-transform:uppercase;letter-spacing:.1em;margin-bottom:16px;padding-bottom:10px;border-bottom:2px solid #E2E8F0;display:flex;align-items:center;gap:10px}
+  .section-header::before{content:'';display:block;width:4px;height:16px;background:#0062DE;border-radius:2px}
+  .idx-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid #E5E7EB;border-radius:10px;overflow:hidden}
+  .idx-table thead th{background:#F1F5F9;padding:10px 14px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#64748B;border-bottom:1px solid #E5E7EB}
+  .idx-table tbody tr{border-bottom:1px solid #F1F5F9}
+  .idx-table tbody tr:last-child{border-bottom:none}
+  /* Content pages */
+  .content-page{padding:40px 56px;min-height:auto}
+  .page-footer{position:fixed;bottom:0;left:0;right:0;padding:12px 56px;display:flex;justify-content:space-between;font-size:10px;color:#94A3B8;border-top:1px solid #E5E7EB;background:#fff}
+  @media print{
+    body{background:#fff}
+    .page{box-shadow:none}
+    .cover{page-break-after:always}
+    .index-page{page-break-after:always}
+    @page{size:A4;margin:0}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- PORTADA -->
+  <div class="cover">
+    <div class="cover-top">
+      <div class="cover-logo">cocos<em>.</em>capital</div>
+      <div class="cover-divider"></div>
+      <div class="cover-title">Reporte<br>de Calidad</div>
+      <div class="cover-sub">Macros · CX</div>
+    </div>
+    <div class="cover-bottom">
+      <div class="cover-meta-item"><strong>Estado</strong>${estadoLabel}</div>
+      <div class="cover-meta-item"><strong>Período</strong>${rangoLabel}</div>
+      <div class="cover-meta-item"><strong>Total de macros</strong>${list.length}</div>
+      <div class="cover-meta-item"><strong>Generado</strong>${now}</div>
+    </div>
+  </div>
+
+  <!-- ÍNDICE -->
+  <div class="index-page">
+    <div class="section-header">Índice por categoría</div>
+    <table class="idx-table">
+      <thead><tr><th>Categoría</th><th style="text-align:right">Macros</th></tr></thead>
+      <tbody>${indexRows}</tbody>
+    </table>
+    <div style="margin-top:24px;background:#F8FAFC;border-radius:10px;padding:16px 20px;border:1px solid #E5E7EB">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">
+        <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#0F172A">${list.filter(t=>t.estado_calidad==='aprobada').length}</div><div style="font-size:11px;color:#6B7280;margin-top:3px">Aprobadas</div></div>
+        <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#0F172A">${list.filter(t=>t.estado_calidad==='pendiente'||!t.estado_calidad).length}</div><div style="font-size:11px;color:#6B7280;margin-top:3px">Pendientes</div></div>
+        <div style="text-align:center"><div style="font-size:28px;font-weight:800;color:#0F172A">${list.filter(t=>t.estado_calidad==='rechazada').length}</div><div style="font-size:11px;color:#6B7280;margin-top:3px">Rechazadas</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SECCIONES POR CATEGORÍA -->
+  <div class="content-page">
+    ${catSections}
+  </div>
+
+  <div class="page-footer">
+    <span>Reporte de Calidad · Cocos Capital</span>
+    <span>Generado el ${now}</span>
+  </div>
+
+</div>
+<script>window.onload=function(){setTimeout(()=>window.print(),700)}<\/script>
+</body>
+</html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url  = URL.createObjectURL(blob);
+  const w    = window.open(url,'_blank');
+  if(!w){ toast('Popups bloqueados — habilitá popups para este sitio','er'); return; }
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  toast(`PDF listo — ${list.length} macros · Ctrl+P para guardar`,'ok');
+}
+
+// ════════════════════════════════════════
+// EXPORT EXCEL (CSV con BOM — abre directo en Excel/Sheets)
+// Columnas: Categoría | Título | Mensaje | Estado | Autor | Fecha | Usos
+// Una macro por fila. Sin dependencias externas.
+// ════════════════════════════════════════
+function exportQualityExcel(){
+  // Usa los mismos filtros activos del panel QA
+  const list = getFilteredQA();
+  if(!list.length){ toast('Sin macros para exportar','er'); return; }
+
+  // Helper: limpia HTML → texto plano
+  function htmlToText(html){
+    return (html||'')
+      .replace(/<br\s*\/?>/gi,'\n')
+      .replace(/<\/p>/gi,'\n')
+      .replace(/<\/li>/gi,'\n')
+      .replace(/<[^>]+>/g,'')
+      .replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"').replace(/&#39;/g,"'")
+      .replace(/\n{3,}/g,'\n\n')
+      .trim();
+  }
+
+  // Helper: escapa un campo CSV (comillas dobles, saltos preservados)
+  function csvCell(v){
+    const s = String(v==null?'':v);
+    // Siempre entre comillas para preservar saltos de línea y comas
+    return '"' + s.replace(/"/g,'""') + '"';
+  }
+
+  const header = ['Categoría','Título','Mensaje','Estado','Aprobada por','Autor','Fecha creación','Usos'];
+  const rows = list.map(t => [
+    t.cat||'—',
+    t.title||'—',
+    htmlToText(t.body),
+    t.estado_calidad==='aprobada'?'Aprobada':t.estado_calidad==='rechazada'?'Rechazada':'Pendiente',
+    t.aprobada_por||'—',
+    (USERS.find(u=>u.id===t.createdBy)?.name)||'—',
+    t.created||'—',
+    t.uses||0
+  ]);
+
+  const csv = [header, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+
+  // UTF-8 BOM (\uFEFF) → Excel abre tildes correctamente
+  const blob = new Blob(['\uFEFF' + csv], {type:'text/csv;charset=utf-8;'});
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = `macros_calidad_${today()}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{ document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+  toast(`Excel exportado — ${list.length} macros ✓`, 'ok');
+}
+
+function today(){return new Date().toISOString().split('T')[0];}
+function toast(msg,type='ok'){const t=document.getElementById('toast');t.textContent=msg;t.className=`toast on ${type}`;clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('on'),2800);}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();const q=document.getElementById('q');if(q){q.focus();q.select();}}
+  if(e.key==='Escape'){
+    document.getElementById('overlay-qa-review')?.classList.remove('on');
+    document.getElementById('overlay-reject')?.classList.remove('on');
+    document.getElementById('overlay-pdf-export')?.classList.remove('on');
+  }
+});
+// ════════════════════════════════════════
+// CX_NOTIF — shared notification store
+// Shared key: cx_notifications (all apps read/write)
+// ════════════════════════════════════════
+const CX_NOTIF_KEY='cx_notifications';
+
+function cxNotifLoad(){try{return JSON.parse(localStorage.getItem(CX_NOTIF_KEY)||'[]');}catch(e){return[];}}
+function cxNotifSave(list){try{localStorage.setItem(CX_NOTIF_KEY,JSON.stringify(list.slice(0,200)));}catch(e){}}
+
+function cxNotifPush(n){
+  const list=cxNotifLoad();
+  list.unshift({id:'n_'+Date.now()+Math.random(),...n,read:false});
+  cxNotifSave(list);
+  cxNotifBadge();
+}
+
+function cxNotifBadge(){
+  const email=CU?.email||'';
+  const unread=cxNotifLoad().filter(n=>n.toUser===email&&!n.read).length;
+  const b=document.getElementById('notif-badge');
+  if(b)b.style.display=unread?'block':'none';
+}
+
+function cxNotifToggle(){
+  const panel=document.getElementById('notif-panel');
+  const overlay=document.getElementById('notif-overlay');
+  const isOpen=panel.style.display==='flex';
+  panel.style.display=isOpen?'none':'flex';
+  if(overlay)overlay.style.display=isOpen?'none':'block';
+  if(!isOpen)cxNotifRender();
+}
+
+function cxNotifRender(){
+  const list=document.getElementById('notif-list');if(!list)return;
+  const email=CU?.email||'';
+  const notifs=cxNotifLoad().filter(n=>n.toUser===email).slice(0,40);
+  if(!notifs.length){list.innerHTML=`<div style="padding:40px;text-align:center;font-size:13px;color:var(--t3)">Sin notificaciones</div>`;return;}
+  list.innerHTML=notifs.map(n=>{
+    const t=new Date(n.ts).toLocaleString('es-AR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'});
+    return`<div onclick="cxNotifClick('${n.id}')" style="padding:13px 18px;border-bottom:1px solid var(--b0);cursor:pointer;background:${n.read?'transparent':'rgba(0,98,222,.05)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        ${!n.read?'<span style="width:7px;height:7px;border-radius:50%;background:var(--blue);flex-shrink:0"></span>':'<span style="width:7px"></span>'}
+        <span style="font-size:13px;font-weight:600;color:var(--t0)">${n.fromUser||'Sistema'}</span>
+        <span style="font-size:11px;color:var(--t3);margin-left:auto">${t}</span>
+      </div>
+      <div style="font-size:12px;color:var(--t2);margin-left:15px;margin-bottom:3px">${n.appLabel||n.evLabel||''}</div>
+      <div style="font-size:12px;color:var(--t1);margin-left:15px;line-height:1.5;background:var(--s2);border-radius:6px;padding:6px 10px">"${n.preview||''}"</div>
+    </div>`;
+  }).join('');
+}
+
+function cxNotifClick(nid){
+  const list=cxNotifLoad();
+  const n=list.find(x=>x.id===nid);if(!n)return;
+  n.read=true;cxNotifSave(list);
+  cxNotifBadge();
+  // If it's a macros notification, open the macro
+  if(n.macroId){cxNotifToggle();openDetail(n.macroId);}
+  else cxNotifToggle();
+}
+
+function cxNotifMarkAll(){
+  const email=CU?.email||'';
+  const list=cxNotifLoad().map(n=>n.toUser===email?{...n,read:true}:n);
+  cxNotifSave(list);cxNotifBadge();cxNotifRender();
+}
+
+document.addEventListener('click',e=>{const p=document.getElementById('notif-panel');if(p&&p.style.display==='flex'&&!p.contains(e.target)&&!e.target.closest('.notif-wrap')&&!e.target.closest('#notif-btn'))cxNotifToggle();});
+</script>
+</body>
+</html>
