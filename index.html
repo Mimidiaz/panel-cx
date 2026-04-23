@@ -548,6 +548,7 @@ body.dark .sheets-action-card{background:var(--surf-1)}
           <span id="sb-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s"></span>
           <span id="sb-status-lbl">Local</span>
           <button onclick="forceSyncAll()" title="Forzar sincronización con Supabase" id="sb-sync-btn" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:var(--t3);line-height:1" onmouseenter="this.style.color='var(--blue)'" onmouseleave="this.style.color='var(--t3)'">↑</button>
+          <button onclick="runDedup()" title="Limpiar duplicados y normalizar tipos" style="background:none;border:none;cursor:pointer;font-size:12px;padding:0 2px;color:var(--t3);line-height:1" onmouseenter="this.style.color='var(--green)'" onmouseleave="this.style.color='var(--t3)'">✦</button>
         </div>
       </div>
       <button class="btn-out" onclick="doLogout()">Salir</button>
@@ -2102,38 +2103,71 @@ function editEv(id){openEventModal(id);}
 // ── ONE-TIME DEDUP ON LOAD ────────────────
 // Groups existing events that share (date + type) into single records.
 // Safe to run multiple times (idempotent).
+// ── Type aliases: old name → correct name ──
+const TYPE_ALIASES={
+  'DIVIDENDOS':          'PAGO DE DIVIDENDOS',
+  'DIVIDENDO':           'PAGO DE DIVIDENDOS',
+  'PAGO DIVIDENDOS':     'PAGO DE DIVIDENDOS',
+  'AMORTIZACIÓN':        'PAGO DE AMORTIZACIÓN',
+  'AMORTIZACION':        'PAGO DE AMORTIZACIÓN',
+  'PAGO AMORTIZACIÓN':   'PAGO DE AMORTIZACIÓN',
+  'PAGO AMORTIZACION':   'PAGO DE AMORTIZACIÓN',
+  'RENTA':               'PAGO DE RENTA',
+  'PAGO RENTA':          'PAGO DE RENTA',
+};
+
 function deduplicateExistingEvents(){
-  const groups={};
-  // Index all events by "date|type"
-  DB.events.forEach(ev=>{
-    const key=`${ev.date}|${ev.type}`;
-    if(!groups[key])groups[key]=[];
-    groups[key].push(ev);
-  });
   let changed=false;
-  Object.values(groups).forEach(evs=>{
-    if(evs.length<2)return;
-    // Keep first event as canonical, merge the rest into it
-    const [keeper,...rest]=evs;
-    rest.forEach(dup=>{
-      const dupTks=dup.tickers||[];
-      const newTks=dupTks.filter(tk=>!(keeper.tickers||[]).includes(tk));
-      if(newTks.length){
-        keeper.tickers=[...new Set([...(keeper.tickers||[]),...newTks])].sort();
-      }
-      if(!keeper.company&&dup.company)keeper.company=dup.company;
-      if(!keeper.desc&&dup.desc)keeper.desc=dup.desc;
-      if(!keeper.note&&dup.note)keeper.note=dup.note;
-      if(dup.calColor&&!keeper.calColor)keeper.calColor=dup.calColor;
-      if(dup.autoComplete)keeper.autoComplete=true;
-      keeper.images=[...(keeper.images||[]),...(dup.images||[])];
-      // Remove the duplicate
-      DB.events=DB.events.filter(x=>x.id!==dup.id);
+
+  // 1. Normalize type aliases (rename old names to canonical ones)
+  DB.events.forEach(ev=>{
+    const canonical=TYPE_ALIASES[ev.type?.toUpperCase()];
+    if(canonical&&ev.type!==canonical){
+      ev.type=canonical;
       changed=true;
-    });
-    keeper.updatedAt=new Date().toISOString();
+    }
   });
-  if(changed)saveDB();
+
+  // 2. Dedup by date|type|company — merge tickers, keep best data
+  const seen={};
+  const toRemove=new Set();
+  DB.events.forEach(ev=>{
+    const key=`${ev.date}|${ev.type}|${(ev.company||'').toLowerCase().trim()}`;
+    if(!seen[key]){seen[key]=ev;return;}
+    // Merge into existing keeper
+    const keeper=seen[key];
+    const newTks=(ev.tickers||[]).filter(tk=>!(keeper.tickers||[]).includes(tk));
+    if(newTks.length){keeper.tickers=[...new Set([...(keeper.tickers||[]),...newTks])].sort();}
+    if(!keeper.company&&ev.company)keeper.company=ev.company;
+    if(!keeper.desc&&ev.desc)keeper.desc=ev.desc;
+    if(!keeper.note&&ev.note)keeper.note=ev.note;
+    if(ev.calColor&&!keeper.calColor)keeper.calColor=ev.calColor;
+    if(ev.autoComplete)keeper.autoComplete=true;
+    keeper.images=[...(keeper.images||[]),...(ev.images||[])];
+    keeper.updatedAt=new Date().toISOString();
+    toRemove.add(ev.id);
+    changed=true;
+  });
+
+  if(toRemove.size){
+    DB.events=DB.events.filter(e=>!toRemove.has(e.id));
+    // Delete removed duplicates from Supabase
+    if(SB_OK)toRemove.forEach(id=>sbDelete('bit_events',id));
+  }
+
+  if(changed){
+    saveDB();
+    // Sync all renamed/merged events to Supabase
+    if(SB_OK)sbUpsert('bit_events',DB.events.map(sbEventRow));
+  }
+  return{removed:toRemove.size,renamed:changed};
+}
+
+// Manual trigger — admin can call this to clean up anytime
+function runDedup(){
+  const result=deduplicateExistingEvents();
+  renderEvents();renderCal();renderUpcoming();populateSels();
+  toast(`Limpieza: ${result.removed} duplicado${result.removed!==1?'s':''} eliminado${result.removed!==1?'s':''}${result.renamed?' · tipos normalizados':''}`, 'success');
 }
 
 // ── MERGE / DEDUP LOGIC ──────────────────
