@@ -931,7 +931,7 @@ body.dark .sheets-action-card{background:var(--surf-1)}
       <div class="field">
         <label>Color en calendario</label>
         <div style="display:flex;gap:8px;align-items:center">
-          <input type="color" id="ev-cal-color" value="" style="width:36px;height:32px;padding:2px;border-radius:var(--r-sm);border:1px solid var(--b0);background:var(--surf-1);cursor:pointer">
+          <input type="color" id="ev-cal-color" value="#BFDBFE" style="width:36px;height:32px;padding:2px;border-radius:var(--r-sm);border:1px solid var(--b0);background:var(--surf-1);cursor:pointer">
           <span style="font-size:11px;color:var(--t3)">Sobreescribe color del tipo</span>
         </div>
       </div>
@@ -1377,50 +1377,161 @@ async function loadDB(){
     const r=localStorage.getItem('cc_bit_v3');
     if(r){const p=JSON.parse(r);DB={...DB,...p};}
   }catch(e){}
+
+  // 1b. Merge m4_users (shared with Macros/Panel) into DB.users as fallback
+  try{
+    const shared=JSON.parse(localStorage.getItem('m4_users')||'[]');
+    shared.forEach(su=>{
+      const existing=DB.users.find(x=>x.email.toLowerCase()===su.email.toLowerCase());
+      if(existing){existing.pass=su.pass;existing.name=su.name;existing.active=su.active;existing.role=su.role==='admin'?'admin':'reader';}
+      else DB.users.push({id:su.id||'u_'+Date.now(),email:su.email,name:su.name||su.email,role:su.role==='admin'?'admin':'reader',pass:su.pass,active:su.active!==false,created:su.created_at||new Date().toISOString()});
+    });
+  }catch(e){}
+
+  // Ensure super-admin always exists
   if(!DB.users.find(u=>u.email==='mirdiaz@cocos.capital'))
     DB.users.unshift({id:'u1',email:'mirdiaz@cocos.capital',name:'Mir Díaz',role:'admin',pass:'admin123',active:true,created:new Date().toISOString()});
 
-  // 2. Try Supabase — fetch events, comments, notifications
+  // 2. Try Supabase — fetch users, events, comments
   try{
-    const [evData, cmtData, notifData] = await Promise.all([
+    const testR=await fetch(`${SB_URL}/rest/v1/bit_events?select=id&limit=1`,{headers:SB_H});
+    if(!testR.ok){
+      const errBody=await testR.text();
+      console.warn('[SB] bit_events check failed:',testR.status,errBody);
+      setSBStatus(false);
+      if(testR.status===404||errBody.includes('does not exist')||errBody.includes('42P01')){
+        setSBError('Tablas no creadas — ver SQL en consola');
+        console.error('[SB] Ejecutá este SQL en Supabase:\n'+SB_SETUP_SQL);
+      }
+      return;
+    }
+
+    const [evData, cmtData, usrData] = await Promise.all([
       sbGet('bit_events','select=*&order=date.desc'),
       sbGet('bit_comments','select=*&order=ts.asc'),
-      sbGet('bit_notifications','select=*&order=ts.desc&limit=200')
+      sbGet('users','select=*&order=created_at.asc'),  // shared users table
     ]);
-    if(evData!==null){
-      // Supabase is reachable — merge remote data (remote wins)
-      if(evData.length||DB.events.length){
-        // Build map from localStorage events
-        const localMap={};DB.events.forEach(e=>localMap[e.id]=e);
-        // Upsert any local events not yet in Supabase
-        const remoteIds=new Set(evData.map(e=>e.id));
-        const toSync=DB.events.filter(e=>!remoteIds.has(e.id));
-        if(toSync.length)await sbUpsert('bit_events',toSync.map(sbEventRow));
-        // Remote wins for existing IDs
-        DB.events=evData.map(sbRowToEvent);
-        // Add any local-only events
-        toSync.forEach(e=>{if(!DB.events.find(x=>x.id===e.id))DB.events.push(e);});
-      }
-      if(cmtData!==null) DB.comments=cmtData.map(sbRowToComment);
-      if(notifData!==null){
-        // Merge notifications into shared store
-        const local=cxNotifLoad();
-        const remoteNotifIds=new Set(notifData.map(n=>n.id));
-        const merged=[...notifData.map(sbRowToNotif),...local.filter(n=>!remoteNotifIds.has(n.id))];
-        cxNotifSave(merged);
-      }
-      setSBStatus(true);
-      saveDB();
+
+    // Sync users from Supabase → DB.users (source of truth)
+    if(usrData&&usrData.length){
+      usrData.forEach(su=>{
+        const existing=DB.users.find(x=>x.email.toLowerCase()===su.email.toLowerCase());
+        if(existing){
+          existing.name=su.name||existing.name;
+          existing.pass=su.pass||existing.pass;
+          existing.active=su.active!==false;
+          existing.role=su.role==='admin'?'admin':'reader';
+        }else{
+          DB.users.push({
+            id:su.id||'u_'+Date.now(),
+            email:su.email,
+            name:su.name||su.email,
+            role:su.role==='admin'?'admin':'reader',
+            pass:su.pass||'',
+            active:su.active!==false,
+            created:su.created_at||new Date().toISOString()
+          });
+        }
+      });
+      // Also update m4_users so other apps stay in sync
+      localStorage.setItem('m4_users',JSON.stringify(usrData));
+      console.log(`[SB] ✅ ${usrData.length} usuarios cargados desde Supabase`);
     }
-  }catch(e){setSBStatus(false);}
+
+    if(evData!==null){
+      const remoteIds=new Set(evData.map(e=>e.id));
+      const toSync=DB.events.filter(e=>!remoteIds.has(e.id));
+      if(toSync.length){
+        console.log(`[SB] Subiendo ${toSync.length} eventos locales...`);
+        await sbUpsert('bit_events',toSync.map(sbEventRow));
+      }
+      DB.events=[...evData.map(sbRowToEvent),...toSync];
+      if(cmtData!==null) DB.comments=cmtData.map(sbRowToComment);
+      setSBStatus(true);
+      setSBError(null);
+      saveDB();
+      console.log(`[SB] ✅ ${DB.events.length} eventos, ${DB.comments.length} comentarios`);
+    }
+  }catch(e){
+    console.error('[SB] Error de conexión:',e);
+    setSBStatus(false);
+  }
 }
+
+// Show/clear error hint in header (admin only)
+function setSBError(msg){
+  let el=document.getElementById('sb-error-hint');
+  if(msg){
+    if(!el){
+      el=document.createElement('div');
+      el.id='sb-error-hint';
+      el.style.cssText='font-size:10px;color:var(--red);padding:3px 8px;background:rgba(240,92,92,.08);border:1px solid rgba(240,92,92,.2);border-radius:4px;cursor:pointer;white-space:nowrap;max-width:200px;overflow:hidden;text-overflow:ellipsis';
+      el.title='Click para ver SQL en consola (F12)';
+      el.onclick=()=>console.log('[SB SQL]\n'+SB_SETUP_SQL);
+      const wrap=document.getElementById('sb-status-wrap');
+      if(wrap)wrap.appendChild(el);
+    }
+    el.textContent=msg;
+  }else if(el){el.remove();}
+}
+
+const SB_SETUP_SQL=`
+-- Ejecutá esto en Supabase > SQL Editor:
+
+create table if not exists bit_events (
+  id text primary key,
+  date text,
+  type text,
+  tickers text,
+  company text,
+  description text,
+  notes text,
+  complete text default 'no',
+  cal_color text,
+  auto_complete boolean default false,
+  created_by text,
+  updated_at timestamptz,
+  images_json text
+);
+
+create table if not exists bit_comments (
+  id text primary key,
+  ev_id text,
+  user_id text,
+  user_name text,
+  body text,
+  ts timestamptz,
+  mentions text
+);
+
+create table if not exists bit_notifications (
+  id text primary key,
+  to_user text,
+  from_user text,
+  ev_id text,
+  ev_label text,
+  preview text,
+  ts timestamptz,
+  read boolean default false
+);
+
+alter table bit_events enable row level security;
+alter table bit_comments enable row level security;
+alter table bit_notifications enable row level security;
+
+create policy "anon all" on bit_events for all using (true) with check (true);
+create policy "anon all" on bit_comments for all using (true) with check (true);
+create policy "anon all" on bit_notifications for all using (true) with check (true);
+`;
 
 // ─── ROW MAPPERS ─────────────────────
 function sbEventRow(e){
   return{
     id:e.id, date:e.date, type:e.type,
     tickers:JSON.stringify(e.tickers||[]),
-    company:e.company||'', desc:e.desc||'', note:e.note||'',
+    company:e.company||'',
+    description:e.desc||'',
+    notes:e.note||'',
     complete:e.complete||'no',
     cal_color:e.calColor||'',
     auto_complete:e.autoComplete||false,
@@ -1429,7 +1540,7 @@ function sbEventRow(e){
     images_json:JSON.stringify((e.images||[]).map(img=>({
       n:img.n||'',mime:img.mime||'',
       driveId:img.driveId||'',viewLink:img.viewLink||'',dlLink:img.dlLink||'',
-      d:img.d?.startsWith('data:')?'[local]':img.d||'' // don't store base64 in Supabase
+      d:img.d?.startsWith('data:')?'[local]':img.d||''
     })))
   };
 }
@@ -1437,25 +1548,27 @@ function sbRowToEvent(r){
   return{
     id:r.id, date:r.date, type:r.type,
     tickers:safeJsonParse(r.tickers,[]),
-    company:r.company||'', desc:r.desc||'', note:r.note||'',
+    company:r.company||'',
+    desc:r.description||'',
+    note:r.notes||'',
     complete:r.complete||'no',
     calColor:r.cal_color||'',
     autoComplete:r.auto_complete||false,
     createdBy:r.created_by||'',
     updatedAt:r.updated_at||'',
-    images:safeJsonParse(r.images_json,[]).filter(i=>i.driveId||i.viewLink) // only Drive-linked images
+    images:safeJsonParse(r.images_json,[]).filter(i=>i.driveId||i.viewLink)
   };
 }
 function sbCommentRow(c){
   return{
     id:c.id, ev_id:c.evId, user_id:c.userId,
-    user_name:c.userName||'', text:c.text||'',
+    user_name:c.userName||'', body:c.text||'',
     ts:c.ts||new Date().toISOString(),
     mentions:JSON.stringify(c.mentions||[])
   };
 }
 function sbRowToComment(r){
-  return{id:r.id,evId:r.ev_id,userId:r.user_id,userName:r.user_name||'',text:r.text||'',ts:r.ts||'',mentions:safeJsonParse(r.mentions,[])};
+  return{id:r.id,evId:r.ev_id,userId:r.user_id,userName:r.user_name||'',text:r.body||'',ts:r.ts||'',mentions:safeJsonParse(r.mentions,[])};
 }
 function sbNotifRow(n){
   return{id:n.id,to_user:n.toUser,from_user:n.fromUser||'',ev_id:n.evId||'',ev_label:n.evLabel||n.appLabel||'',preview:n.preview||'',ts:n.ts||new Date().toISOString(),read:n.read||false};
@@ -1469,22 +1582,13 @@ function safeJsonParse(s,fallback){try{return JSON.parse(s);}catch(e){return fal
 function doLogin(){
   const em=document.getElementById('login-email').value.trim().toLowerCase();
   const pw=document.getElementById('login-pass').value;
-  // Check bitácora's own DB first, then fall back to shared m4_users
-  let u=DB.users.find(u=>u.email.toLowerCase()===em&&u.pass===pw&&u.active);
-  if(!u){
-    try{
-      const shared=JSON.parse(localStorage.getItem('m4_users')||'[]');
-      const su=shared.find(x=>x.active&&x.pass===pw&&(x.email.toLowerCase()===em||(x.username&&x.username.toLowerCase()===em)));
-      if(su){
-        // Sync this user into DB.users so future logins work offline
-        const existing=DB.users.find(x=>x.email.toLowerCase()===su.email.toLowerCase());
-        if(existing){existing.pass=su.pass;existing.name=su.name;existing.active=su.active;}
-        else DB.users.push({id:su.id||'u_'+Date.now(),email:su.email,name:su.name||su.email,role:su.role==='admin'?'admin':'reader',pass:su.pass,active:true,created:su.created_at||new Date().toISOString()});
-        saveDB();
-        u=DB.users.find(x=>x.email.toLowerCase()===em&&x.active);
-      }
-    }catch(e){}
-  }
+  // DB.users is already synced from Supabase + m4_users in loadDB
+  const u=DB.users.find(u=>
+    u.active&&u.pass===pw&&(
+      u.email.toLowerCase()===em||
+      (u.username&&u.username.toLowerCase()===em)
+    )
+  );
   if(!u){document.getElementById('login-error').style.display='block';return;}
   document.getElementById('login-error').style.display='none';
   CU=u; sessionStorage.setItem('ccs',u.id); audit('LOGIN','session',u.email); initApp();
