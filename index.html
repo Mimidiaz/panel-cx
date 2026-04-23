@@ -946,8 +946,8 @@ body.dark .sheets-action-card{background:var(--surf-1)}
     </div>
     <div class="field">
       <label>Adjuntos (imágenes / PDFs)</label>
-      <div class="imgzone" onclick="document.getElementById('ev-img-in').click()" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleEvImgs(event.dataTransfer.files)">
-        📎 Clic o arrastrá archivos
+      <div class="imgzone" onclick="driveToken?document.getElementById('ev-img-in').click():toast('Conectá Drive primero','error')" ondragover="event.preventDefault()" ondrop="event.preventDefault();handleEvImgs(event.dataTransfer.files)">
+        <span id="imgzone-label">📎 Clic o arrastrá — requiere Drive conectado</span>
         <input type="file" id="ev-img-in" accept="image/*,application/pdf" multiple style="display:none" onchange="handleEvImgs(this.files)">
       </div>
       <div class="upload-prog" id="upload-prog"><div class="upload-prog-bar" id="upload-prog-bar"></div></div>
@@ -2033,20 +2033,71 @@ function populateSels(){
 
 // Images
 function handleEvImgs(files){
+  if(!driveTokenValid()){
+    // Try silent reconnect first, then block
+    toast('Conectá Drive para adjuntar archivos','error');
+    // Show connect prompt
+    const prog=document.getElementById('upload-prog');
+    const bar=document.getElementById('upload-prog-bar');
+    if(prog){prog.style.display='block';}
+    if(bar){bar.style.width='0%';bar.style.background='var(--red)';}
+    setTimeout(()=>{if(prog)prog.style.display='none';if(bar)bar.style.background='';},2000);
+    // Reset file input
+    setTimeout(()=>{const inp=document.getElementById('ev-img-in');if(inp)inp.value='';},100);
+    return;
+  }
   Array.from(files).forEach(f=>{
     const r=new FileReader();
-    r.onload=e=>{pendImgs.push({d:e.target.result,n:f.name,mime:f.type});renderImgPrev();};
+    r.onload=async e=>{
+      const fileObj={d:e.target.result,n:f.name,mime:f.type};
+      // Add placeholder immediately so user sees something
+      const tempId='tmp_'+Date.now()+Math.random();
+      pendImgs.push({...fileObj,_tempId:tempId,_uploading:true});
+      renderImgPrev();
+      // Upload to Drive right away
+      const result=await uploadFileToDrive(fileObj);
+      const idx=pendImgs.findIndex(x=>x._tempId===tempId);
+      if(idx===-1)return; // user removed it
+      if(result){
+        // Replace temp entry with Drive-linked version
+        pendImgs[idx]={
+          driveId:result.id, n:result.name, mime:f.type,
+          viewLink:result.viewLink, dlLink:result.dlLink,
+          d:f.type.startsWith('image/')?e.target.result:null // keep image preview only
+        };
+        toast(`✅ ${result.name} subido a Drive`,'success');
+      }else{
+        // Upload failed — keep base64 as fallback but mark it
+        pendImgs[idx]={...fileObj,_uploadFailed:true};
+        toast(`⚠ ${f.name} no se pudo subir — guardado local`,'');
+      }
+      renderImgPrev();
+    };
     r.readAsDataURL(f);
   });
   setTimeout(()=>{const inp=document.getElementById('ev-img-in');if(inp)inp.value='';},100);
 }
+
 function renderImgPrev(){
   document.getElementById('ev-img-prev').innerHTML=pendImgs.map((img,i)=>{
     const isPdf=img.mime==='application/pdf'||img.n?.toLowerCase().endsWith('.pdf');
-    const thumb=isPdf
-      ?`<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surf-2);font-size:10px;color:var(--t2);gap:3px;padding:4px;text-align:center"><span style="font-size:22px">📄</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${img.n}</span></div>`
-      :`<img src="${img.d}" style="width:100%;height:100%;object-fit:cover;display:block">`;
-    return`<div class="ithumb"><button class="idel" onclick="rmImg(${i})">×</button>${thumb}</div>`;
+    const isUploading=img._uploading;
+    const failed=img._uploadFailed;
+    const inDrive=!!img.driveId;
+    let thumb;
+    if(isUploading){
+      thumb=`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--surf-2);font-size:10px;color:var(--t3)">⏳</div>`;
+    }else if(isPdf){
+      thumb=`<div style="width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--surf-2);font-size:10px;color:var(--t2);gap:3px;padding:4px;text-align:center">
+        <span style="font-size:22px">📄</span>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%">${img.n}</span>
+        ${inDrive?'<span style="font-size:9px;color:var(--green)">✓ Drive</span>':failed?'<span style="font-size:9px;color:var(--red)">⚠ Local</span>':''}
+      </div>`;
+    }else{
+      thumb=`<img src="${img.d}" style="width:100%;height:100%;object-fit:cover;display:block">
+        ${inDrive?'<div style="position:absolute;bottom:2px;right:2px;background:rgba(0,0,0,.5);border-radius:3px;padding:1px 4px;font-size:8px;color:#fff">Drive</div>':''}`;
+    }
+    return`<div class="ithumb" style="position:relative"><button class="idel" onclick="rmImg(${i})">×</button>${thumb}</div>`;
   }).join('');
 }
 function rmImg(i){pendImgs.splice(i,1);renderImgPrev();}
@@ -2351,20 +2402,24 @@ function openEvPanel(id){
         const isPdf=mime==='application/pdf'||nm.toLowerCase().endsWith('.pdf');
         const hasDrive=typeof att==='object'&&att.viewLink;
         const hasBase64=src&&src.startsWith('data:');
-        const isImage=src&&src.startsWith('data:image');
+        const isImage=mime.startsWith('image/')||(!isPdf&&(src?.startsWith('data:image')||att.driveId));
+        // Get best inline URL — Drive thumbnail > base64
+        const inlineUrl=driveImgUrl(att)||(hasBase64&&!isPdf?src:null);
 
-        if(!isPdf&&isImage&&hasDrive){
-          // Image already in Drive — show thumbnail + Drive link
+        if(isImage&&inlineUrl){
+          // Show image inline
           return`<div style="margin-bottom:8px">
-            <img src="${src}" onclick="openLB('${src}')" style="width:100%;border-radius:8px;cursor:zoom-in;display:block;border:1px solid var(--b0);max-height:300px;object-fit:contain;margin-bottom:4px">
-            <a href="${att.viewLink}" target="_blank" style="font-size:11px;color:var(--blue);text-decoration:none">↗ Ver en Drive</a>
-          </div>`;
-        }
-        if(!isPdf&&isImage&&!hasDrive){
-          // Image only in localStorage — show thumbnail + upload button
-          return`<div style="margin-bottom:8px">
-            <img src="${src}" onclick="openLB('${src}')" style="width:100%;border-radius:8px;cursor:zoom-in;display:block;border:1px solid var(--b0);max-height:300px;object-fit:contain;margin-bottom:6px">
-            ${driveToken?`<button onclick="uploadAttToDrive('${e.id}',${ai})" style="font-size:11px;padding:4px 10px;background:var(--surf-1);border:1px solid var(--b1);border-radius:5px;cursor:pointer;font-family:var(--ff);color:var(--t2)">↑ Subir a Drive</button>`:`<span style="font-size:11px;color:var(--amber)">⚠ Conectá Drive para subir</span>`}
+            <img src="${inlineUrl}" onclick="openLB('${inlineUrl}')"
+              style="width:100%;border-radius:8px;cursor:zoom-in;display:block;border:1px solid var(--b0);max-height:400px;object-fit:contain"
+              onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div style="display:none;align-items:center;gap:10px;padding:11px 14px;background:var(--surf-1);border:1px solid var(--b0);border-radius:8px">
+              <div style="font-size:22px">🖼</div>
+              <div style="flex:1;font-size:13px;font-weight:600;color:var(--t0)">${nm}</div>
+              ${hasDrive?`<a href="${att.viewLink}" target="_blank" style="padding:5px 12px;background:var(--blue);color:#fff;border-radius:6px;font-size:12px;font-weight:600;text-decoration:none">Ver en Drive →</a>`:''}
+            </div>
+            ${hasDrive?`<div style="margin-top:4px;display:flex;align-items:center;gap:8px">
+              <a href="${att.viewLink}" target="_blank" style="font-size:11px;color:var(--blue);text-decoration:none">↗ Ver en Drive</a>
+            </div>`:''}
           </div>`;
         }
 
@@ -3637,6 +3692,10 @@ function genCuad(){
             </div>
             ${hasDrive?`<a href="${att.viewLink}" target="_blank" style="flex-shrink:0;padding:7px 16px;background:#1E6FDE;color:#fff;border-radius:7px;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap">Ver en Drive →</a>`:''}
           </div>`;
+        }else if(hasDrive&&!isPdf){
+          // Drive image — embed inline using thumbnail URL
+          const thumbUrl=`https://drive.google.com/thumbnail?id=${att.driveId}&sz=w1200`;
+          return`<img src="${thumbUrl}" style="max-width:100%;border-radius:10px;border:1px solid #E2E8F0;display:block;margin-bottom:10px;break-inside:avoid">`;
         }else if(src&&src.startsWith('data:')){
           return`<img src="${src}" style="max-width:100%;border-radius:10px;border:1px solid #E2E8F0;display:block;margin-bottom:10px;break-inside:avoid">`;
         }else if(hasDrive){
@@ -3853,7 +3912,16 @@ function driveDisconnect(){
   toast('Drive desconectado');
 }
 
-// ── Auto-migrate: uploads all base64 attachments still in localStorage to Drive
+// ── Drive inline image URL ────────────
+// Returns a URL that renders the image directly (no auth needed for public files)
+function driveImgUrl(att){
+  if(!att||typeof att!=='object')return null;
+  // Use thumbnail URL for inline display (works for public files)
+  if(att.driveId)return`https://drive.google.com/thumbnail?id=${att.driveId}&sz=w1200`;
+  // Fallback to base64 if available
+  if(att.d&&att.d.startsWith('data:image'))return att.d;
+  return null;
+}
 let _migratingDrive=false;
 async function driveAutoMigrate(){
   if(_migratingDrive||!driveToken)return;
@@ -3975,23 +4043,16 @@ async function saveEvent(){
   const date=document.getElementById('ev-date').value;
   const type=document.getElementById('ev-type').value;
   if(!date||!type){toast('Fecha y tipo son requeridos','error');return;}
-  let processedImgs=[];
-  if(driveToken&&pendImgs.length){
-    const prog=document.getElementById('upload-prog');
-    const progBar=document.getElementById('upload-prog-bar');
-    prog.style.display='block';let done=0;
-    for(const img of pendImgs){
-      if(img.driveId){processedImgs.push(img);done++;progBar.style.width=(done/pendImgs.length*100)+'%';continue;}
-      if(img.d&&img.d.startsWith('data:')){
-        toast(`Subiendo ${img.n||'archivo'} a Drive...`);
-        const result=await uploadFileToDrive(img);
-        if(result){processedImgs.push({driveId:result.id,n:result.name,mime:img.mime||'',viewLink:result.viewLink,dlLink:result.dlLink,d:img.mime?.startsWith('image/')?img.d:null});toast(`✅ ${result.name} subido`,'success');}
-        else processedImgs.push(img);
-      }else processedImgs.push(img);
-      done++;progBar.style.width=(done/pendImgs.length*100)+'%';
-    }
-    setTimeout(()=>{prog.style.display='none';progBar.style.width='0%';},800);
-  }else{processedImgs=pendImgs.map(i=>({d:i.d||i,n:i.n||'',mime:i.mime||''}));}
+
+  // Files are already uploaded to Drive at selection time (handleEvImgs)
+  // Just filter out any still-uploading files and warn
+  const uploading=pendImgs.filter(i=>i._uploading);
+  if(uploading.length){
+    toast(`Esperá — ${uploading.length} archivo${uploading.length!==1?'s':''} aún subiendo...`,'');
+    return;
+  }
+  // Strip base64 from non-Drive files to avoid storing in Supabase
+  const processedImgs=pendImgs.map(img=>img.driveId?img:{...img,d:img.mime?.startsWith('image/')?img.d:null});
   const id=document.getElementById('ev-id').value;
   const ev={
     id:id||'ev_'+Date.now(),date,type,
