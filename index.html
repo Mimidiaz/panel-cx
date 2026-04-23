@@ -1572,11 +1572,18 @@ function sbEventRow(e){
     auto_complete:e.autoComplete||false,
     created_by:e.createdBy||'',
     updated_at:e.updatedAt||new Date().toISOString(),
-    images_json:JSON.stringify((e.images||[]).map(img=>({
-      n:img.n||'',mime:img.mime||'',
-      driveId:img.driveId||'',viewLink:img.viewLink||'',dlLink:img.dlLink||'',
-      d:img.d?.startsWith('data:')?'[local]':img.d||''
-    })))
+    images_json:JSON.stringify((e.images||[]).map(img=>{
+      const d=typeof img==='object'?img.d:img;
+      const dStr=typeof d==='string'?d:'';
+      return{
+        n:(img.n||''),
+        mime:(img.mime||''),
+        driveId:(img.driveId||''),
+        viewLink:(img.viewLink||''),
+        dlLink:(img.dlLink||''),
+        d:dStr.startsWith('data:')?'[local]':dStr  // strip base64, keep Drive URLs
+      };
+    }))
   };
 }
 function sbRowToEvent(r){
