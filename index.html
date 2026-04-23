@@ -547,6 +547,7 @@ body.dark .sheets-action-card{background:var(--surf-1)}
         <div style="display:flex;align-items:center;gap:5px;padding:4px 10px;border:1px solid var(--b0);border-radius:var(--r-sm);font-size:11px;color:var(--t3)">
           <span id="sb-status-dot" style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;transition:background .3s"></span>
           <span id="sb-status-lbl">Local</span>
+          <button onclick="forceSyncAll()" title="Forzar sincronización con Supabase" id="sb-sync-btn" style="background:none;border:none;cursor:pointer;font-size:13px;padding:0 2px;color:var(--t3);line-height:1" onmouseenter="this.style.color='var(--blue)'" onmouseleave="this.style.color='var(--t3)'">↑</button>
         </div>
       </div>
       <button class="btn-out" onclick="doLogout()">Salir</button>
@@ -1330,14 +1331,29 @@ async function sbGet(table,query=''){
   }catch(e){return null;}
 }
 async function sbUpsert(table,data){
-  try{
-    const r=await fetch(`${SB_URL}/rest/v1/${table}`,{
-      method:'POST',
-      headers:{...SB_H,'Prefer':'resolution=merge-duplicates'},
-      body:JSON.stringify(Array.isArray(data)?data:[data])
-    });
-    return r.ok;
-  }catch(e){return false;}
+  const rows=Array.isArray(data)?data:[data];
+  // Send in batches of 50 to stay under Supabase payload limits
+  const BATCH=50;
+  let allOk=true;
+  for(let i=0;i<rows.length;i+=BATCH){
+    const batch=rows.slice(i,i+BATCH);
+    try{
+      const r=await fetch(`${SB_URL}/rest/v1/${table}`,{
+        method:'POST',
+        headers:{...SB_H,'Prefer':'resolution=merge-duplicates'},
+        body:JSON.stringify(batch)
+      });
+      if(!r.ok){
+        const err=await r.text();
+        console.warn(`[SB] upsert ${table} batch ${i/BATCH+1} failed:`,r.status,err);
+        allOk=false;
+      }
+    }catch(e){
+      console.error(`[SB] upsert ${table} batch ${i/BATCH+1} error:`,e);
+      allOk=false;
+    }
+  }
+  return allOk;
 }
 async function sbDelete(table,id){
   try{
@@ -1358,9 +1374,28 @@ function setSBStatus(ok){
 // ─── PERSIST ─────────────────────────────
 function saveDB(){
   try{localStorage.setItem('cc_bit_v3',JSON.stringify(DB));}catch(e){}
-  // Sync to Supabase in background
-  if(SB_OK&&DB.events.length){
-    sbUpsert('bit_events', DB.events.map(sbEventRow));
+}
+
+// Sync a specific event to Supabase (call this after any event change)
+function sbSyncEvent(evId){
+  if(!SB_OK)return;
+  const ev=DB.events.find(e=>e.id===evId);
+  if(ev)sbUpsert('bit_events',[sbEventRow(ev)]);
+}
+
+// Force sync ALL events to Supabase — used for initial migration or manual fix
+async function forceSyncAll(){
+  if(!SB_OK){toast('Sin conexión a Supabase','error');return;}
+  const btn=document.getElementById('sb-sync-btn');
+  if(btn){btn.textContent='…';btn.style.color='var(--amber)';}
+  toast(`Sincronizando ${DB.events.length} eventos...`);
+  const ok=await sbUpsert('bit_events',DB.events.map(sbEventRow));
+  if(btn){btn.textContent='↑';btn.style.color='';}
+  if(ok){
+    toast(`✅ ${DB.events.length} eventos sincronizados`,'success');
+    console.log(`[SB] Force sync OK: ${DB.events.length} eventos`);
+  }else{
+    toast('Algunos eventos no se pudieron sincronizar — ver consola','error');
   }
 }
 
@@ -1777,9 +1812,17 @@ function ciSave(){
   };
   const result=mergeEventIntoGroup(ev);
   if(result==='duplicate')return;
-  saveDB();populateSels();autoCompleteCheck();renderEvents();renderCal();renderUpcoming();
-  if(result==='merged')toast('Tickers agregados al evento existente ✓','success');
-  else toast('Evento creado ✓','success');
+  saveDB();
+  // Sync the saved event to Supabase
+  if(result==='merged'){
+    const target=DB.events.find(x=>x.date===ev.date&&x.type===ev.type);
+    if(target)sbSyncEvent(target.id);
+    toast('Tickers agregados al evento existente ✓','success');
+  }else{
+    sbSyncEvent(ev.id);
+    toast('Evento creado ✓','success');
+  }
+  populateSels();autoCompleteCheck();renderEvents();renderCal();renderUpcoming();
   ciReset();
 }
 
@@ -2170,13 +2213,22 @@ function saveEvent(){
     // Editing existing event — direct replace, no merge
     DB.events[DB.events.findIndex(x=>x.id===id)]=ev;
     audit('UPDATE','event',id);toast('Evento actualizado','success');
+    saveDB();sbSyncEvent(ev.id);
   }else{
     const result=mergeEventIntoGroup(ev);
-    if(result==='duplicate')return; // blocked, toast already shown
-    if(result==='merged')toast('Tickers agregados al evento existente ✓','success');
-    else toast('Evento creado ✓','success');
+    if(result==='duplicate')return;
+    if(result==='merged'){
+      toast('Tickers agregados al evento existente ✓','success');
+      // Find the target event and sync it
+      const target=DB.events.find(x=>x.date===ev.date&&x.type===ev.type);
+      if(target)sbSyncEvent(target.id);
+    }else{
+      toast('Evento creado ✓','success');
+      sbSyncEvent(ev.id);
+    }
+    saveDB();
   }
-  saveDB();closeModal('modal-event');populateSels();autoCompleteCheck();renderEvents();renderCal();renderUpcoming();
+  closeModal('modal-event');populateSels();autoCompleteCheck();renderEvents();renderCal();renderUpcoming();
 }
 
 function delEv(id){
@@ -2337,8 +2389,8 @@ function evPanelComplete(){
   const e=DB.events.find(x=>x.id===_evPanelId);
   if(!e)return;
   e.complete='yes';e.updatedAt=new Date().toISOString();
-  saveDB();renderEvents();renderCal();
-  openEvPanel(_evPanelId); // refresh
+  saveDB();sbSyncEvent(e.id);renderEvents();renderCal();
+  openEvPanel(_evPanelId);
   toast('Marcado como completo ✓','success');
 }
 
@@ -2867,7 +2919,7 @@ function renderPendientes(){
 function quickComplete(id){
   const e=DB.events.find(x=>x.id===id);if(!e)return;
   e.complete='yes';e.updatedAt=new Date().toISOString();
-  saveDB();renderPendientes();renderEvents();renderCal();
+  saveDB();sbSyncEvent(id);renderPendientes();renderEvents();renderCal();
   toast('Marcado como completo ✓','success');
 }
 
